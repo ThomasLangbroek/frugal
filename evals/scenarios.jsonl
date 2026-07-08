@@ -1,5 +1,0 @@
-{"prompt": "Where is the retry logic for HTTP calls defined in this project, and what calls it?", "expect": "scout"}
-{"prompt": "Classify each line of errors.log as timeout, auth failure, or other. Categories are fixed, output a table.", "expect": "extractor"}
-{"prompt": "Rename the function fetch_data to fetch_payload everywhere in this project, including tests. No behaviour change.", "expect": "mechanic"}
-{"prompt": "Implement task 3 of docs/plan.md exactly as written, including its tests.", "expect": "builder"}
-{"prompt": "Our payment service deadlocks under load and two senior engineers already failed to find the cause. I need the deepest analysis available of the attached notes: threads block on connection pool acquire while the pool shows free connections; disabling the audit-log middleware makes it disappear; it only happens above 200 rps.", "expect": "sage"}

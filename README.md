@@ -89,9 +89,20 @@ Judgement lives in prompts; enforcement lives in hooks.
 - No Fable access on your plan? Edit `agents/sage.md` frontmatter to `model: opus` for an Opus ceiling.
 - Multi-provider: see [docs/litellm-recipe.md](docs/litellm-recipe.md).
 
-## Evals
+## Statusline segment (optional)
 
-`evals/run.sh` replays five routing scenarios through `claude -p` and asserts the expected agent was spawned. It costs real tokens and is run on demand, not in CI.
+`scripts/statusline.py` prints a compact `frugal $0.03/$1.20 saved` segment (session/lifetime) and prints nothing when there are no metrics yet. Call it from your existing statusline command, passing the session id from the statusline stdin JSON:
+
+```bash
+FRUGAL_TXT=$(python3 "$(ls -d ~/.claude/plugins/cache/frugal-marketplace/frugal/*/scripts/statusline.py 2>/dev/null | head -1)" \
+  ${SESSION_ID:+--session "$SESSION_ID"} 2>/dev/null)
+```
+
+Append `$FRUGAL_TXT` to your statusline output. No statusline yet? Ask Claude Code to set one up with this segment included.
+
+## Evaluating routing quality
+
+Deliberately no synthetic eval harness: headless scenario evals proved flaky (other plugins' skills win trigger races, model nondeterminism) while measuring little. Evaluate with real usage instead: work normally for a few days, then run `/frugal:router-stats` and read delegation rate, tier mix, and escalation rate. High escalations on one agent means its table row routes too low; near-zero savings means work is not being delegated.
 
 ## Honest trade-offs
 

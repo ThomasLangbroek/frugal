@@ -1,8 +1,0 @@
-2026-07-08T09:00:01 ERROR upstream timed out after 5000ms (order-service)
-2026-07-08T09:00:14 ERROR 401 invalid credentials for user svc-batch
-2026-07-08T09:01:02 ERROR connection reset by peer (payments)
-2026-07-08T09:02:41 ERROR request deadline exceeded after 30s
-2026-07-08T09:03:05 ERROR 403 token expired for user svc-report
-2026-07-08T09:04:19 ERROR disk quota exceeded on /var/tmp
-2026-07-08T09:05:55 ERROR upstream timed out after 5000ms (order-service)
-2026-07-08T09:06:30 ERROR 401 bad signature for user svc-batch

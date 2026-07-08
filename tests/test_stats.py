@@ -43,6 +43,33 @@ def test_empty_metrics_handled(tmp_path):
     assert "no metrics" in out.lower()
 
 
+def test_statusline_session_and_total(tmp_path):
+    path = write_metrics(tmp_path, [
+        {"session_id": "s1", "agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "escalated": False, "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+        {"session_id": "s2", "agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "escalated": False, "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+    ])
+    out = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "statusline.py"),
+         "--path", str(path), "--session", "s1"],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    # each run: haiku $1 vs fable $10 per MTok input -> $9 saved
+    assert out == "frugal $9.00/$18.00 saved"
+
+
+def test_statusline_silent_without_metrics(tmp_path):
+    out = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "statusline.py"),
+         "--path", str(tmp_path / "missing.jsonl")],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert out == ""
+
+
 def test_unknown_model_priced_as_baseline(tmp_path):
     path = write_metrics(tmp_path, [
         {"agent_type": "other", "model": "mystery-model", "escalated": False,
