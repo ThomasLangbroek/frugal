@@ -1,0 +1,5 @@
+{"prompt": "Where is the retry logic for HTTP calls defined in this repo?", "expect": "scout"}
+{"prompt": "Classify each line of errors.log as timeout, auth failure, or other. Categories are fixed.", "expect": "extractor"}
+{"prompt": "Rename the function fetch_data to fetch_payload everywhere, including tests. No behaviour change.", "expect": "mechanic"}
+{"prompt": "Implement task 3 of docs/plan.md exactly as written, including its tests.", "expect": "builder"}
+{"prompt": "Why does the payment service deadlock under load? Here is what two engineers already tried without luck.", "expect": "sage"}
