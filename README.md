@@ -91,14 +91,22 @@ Judgement lives in prompts; enforcement lives in hooks.
 
 ## Statusline segment (optional)
 
-`scripts/statusline.py` prints a compact `frugal $0.03/$1.20 saved` segment (session/lifetime) and prints nothing when there are no metrics yet. Call it from your existing statusline command, passing the session id from the statusline stdin JSON:
+Run once:
+
+```
+/frugal:setup-statusline
+```
+
+It adds a `frugal $0.03/$1.20 saved` badge (session/lifetime) to your statusline: it creates a minimal statusline if you have none, or merges the segment into your existing one (with your consent, smallest possible edit). A plugin cannot configure `statusLine` automatically - that field is user-owned - so this one-time command is as close as it gets.
+
+Manual alternative: call `scripts/statusline.py` from your own statusline command, passing the session id from the statusline stdin JSON:
 
 ```bash
-FRUGAL_TXT=$(python3 "$(ls -d ~/.claude/plugins/cache/frugal-marketplace/frugal/*/scripts/statusline.py 2>/dev/null | head -1)" \
+FRUGAL_TXT=$(python3 "$(ls -d ~/.claude/plugins/cache/*/frugal/*/scripts/statusline.py 2>/dev/null | head -1)" \
   ${SESSION_ID:+--session "$SESSION_ID"} 2>/dev/null)
 ```
 
-Append `$FRUGAL_TXT` to your statusline output. No statusline yet? Ask Claude Code to set one up with this segment included.
+It prints nothing when no metrics exist yet, so your statusline stays clean.
 
 ## Evaluating routing quality
 
