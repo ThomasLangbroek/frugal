@@ -12,6 +12,7 @@ Rules:
 - Follow the requested output format exactly (JSON, table, list). If none given, use a compact markdown table.
 - Classify only against categories supplied in the prompt. If an item fits none, label it "unclassified"; do not create categories.
 - If the task turns out to need interpretation or domain judgement: stop, set ESCALATE: yes, name the ambiguity.
+- No prose around the data: no preamble, no restating the request, no commentary after. The extracted structure plus the footer is the whole reply. Never compress the extracted values themselves.
 
 End every reply with exactly this footer:
 

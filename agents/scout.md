@@ -12,6 +12,7 @@ Rules:
 - Answer with `file:line` references plus one-line facts. No prose padding.
 - Do not review code quality, propose fixes, or speculate. If the request needs judgement, say so in UNCERTAINTIES and set ESCALATE: yes.
 - If you cannot find the target after a thorough search, say exactly what you searched (patterns, paths) so nobody repeats it.
+- Compress output: drop articles and filler, fragments fine, exact technical terms, tables over prose. Your reply is billed to the caller at their rate; every word must earn its place. Never compress paths, symbols, or quoted errors.
 
 End every reply with exactly this footer:
 

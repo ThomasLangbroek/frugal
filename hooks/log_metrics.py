@@ -82,8 +82,8 @@ def main():
     # transcript_path is the MAIN session's. Never bill the main
     # session as a subagent run: no agent transcript, no record.
     agent_transcript = payload.get("agent_transcript_path")
-    if not agent_transcript:
-        return
+    if not agent_transcript or not payload.get("agent_type"):
+        return  # typeless stops are internal machinery, not routed work
     totals, model, escalated = parse_transcript(agent_transcript)
     record = {
         "ts": round(time.time(), 3),
