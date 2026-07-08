@@ -42,7 +42,8 @@ frugal/
 │   ├── scout.md      # haiku  - locate, grep, map, "where is X" (read-only)
 │   ├── extractor.md  # haiku  - extraction, classification, single-doc summarisation
 │   ├── mechanic.md   # sonnet - mechanical edits from a full spec, renames, boilerplate
-│   └── builder.md    # sonnet - scoped implementation from an approved plan
+│   ├── builder.md    # sonnet - scoped implementation from an approved plan
+│   └── sage.md       # fable  - deep reasoning: architecture, debugging, security analysis
 ├── hooks/
 │   ├── hooks.json
 │   └── log_metrics.py              # SubagentStop -> append metrics jsonl
@@ -53,8 +54,15 @@ frugal/
 └── docs/                           # README, extending.md, litellm-recipe.md
 ```
 
-The main model is the planner and the top reasoning tier. It has no agent
-file; it delegates downward and takes over when escalation exhausts.
+The main model is the planner. It delegates downward and takes over when
+escalation exhausts below its own tier. `sage` (Fable) is the escalation
+ceiling above the main loop: used when the main-loop model is a cheaper tier
+(e.g. Sonnet main loop) and a task needs top-tier reasoning, or when a
+Fable-level task benefits from an isolated fresh context (parallel deep
+reviews, final synthesis over merged summaries). If the main loop already
+runs Fable, `sage` adds capability nothing - the skill says so and restricts
+it to context-isolation use. `sage` is never a routing default; it is
+reached only via the decision table's high-risk rows or escalation rule 1.
 
 ### Component mapping (vision -> plugin)
 
@@ -111,7 +119,9 @@ Router rules:
 
 1. A deterministic check exists (tests, compile, schema validation, diff
    applies, `terraform validate`) -> run it. Pass = done. Fail = escalate one
-   tier, maximum one retry, then the main loop takes the task itself.
+   tier, maximum one retry, then the main loop takes the task itself. If the
+   task then still exceeds the main loop's own tier, hand to `sage` (one
+   attempt, final).
 2. No deterministic check -> the main model spot-reads the result (it
    receives it anyway; marginal cost near zero).
 3. Worker `ESCALATE: yes` is advisory input to 1-2, never the sole trigger.
@@ -165,10 +175,12 @@ summaries, one final reasoning pass in the main loop).
   honestly in the README.
 - Claude Code only. Multi-provider is a recipe, not a tested code path.
 - Metrics limited to fields hook events expose.
+- Fable access varies by plan/deployment. README documents editing `sage.md`
+  frontmatter to `opus` as the fallback ceiling.
 
 ## Build phases
 
-1. **Core:** routing skill + 4 agents + escalation contract. Usable
+1. **Core:** routing skill + 5 agents + escalation contract. Usable
    immediately after this phase.
 2. **Metrics:** SubagentStop hook + `/router-stats` + price table.
 3. **Polish:** evals, docs (README, extending guide, LiteLLM recipe),
