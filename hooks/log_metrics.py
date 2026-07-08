@@ -18,8 +18,18 @@ USAGE_KEYS = (
 )
 
 
+def message_texts(content):
+    if isinstance(content, str):
+        return [content]
+    if isinstance(content, list):
+        return [b.get("text", "") for b in content
+                if isinstance(b, dict) and b.get("type") == "text"]
+    return []
+
+
 def parse_transcript(path):
     totals = dict.fromkeys(USAGE_KEYS, 0)
+    by_id = {}
     model = None
     escalated = False
     try:
@@ -36,23 +46,45 @@ def parse_transcript(path):
             if not isinstance(message, dict):
                 continue
             if not escalated and message.get("role") == "user":
-                content = message.get("content")
-                text = content if isinstance(content, str) else json.dumps(content)
-                if "[frugal-escalation" in text:
+                # escalation re-dispatches prefix their prompt with the
+                # marker; the policy text merely quotes it mid-sentence
+                if any(t.startswith("[frugal-escalation")
+                       for t in message_texts(message.get("content"))):
                     escalated = True
             usage = message.get("usage")
             if isinstance(usage, dict):
                 model = message.get("model") or model
+                # one API response spans several transcript lines whose
+                # usage snapshots grow as output streams; per response
+                # (message id) only the largest snapshot is the bill.
+                # Lines without an id are assumed distinct responses.
+                msg_id = message.get("id")
+                if msg_id is None:
+                    for key in USAGE_KEYS:
+                        value = usage.get(key)
+                        if isinstance(value, (int, float)):
+                            totals[key] += value
+                    continue
+                bucket = by_id.setdefault(msg_id, dict.fromkeys(USAGE_KEYS, 0))
                 for key in USAGE_KEYS:
                     value = usage.get(key)
                     if isinstance(value, (int, float)):
-                        totals[key] += value
+                        bucket[key] = max(bucket[key], value)
+    for bucket in by_id.values():
+        for key in USAGE_KEYS:
+            totals[key] += bucket[key]
     return totals, model, escalated
 
 
 def main():
     payload = json.load(sys.stdin)
-    totals, model, escalated = parse_transcript(payload.get("transcript_path") or "")
+    # agent_transcript_path is the subagent's own transcript;
+    # transcript_path is the MAIN session's. Never bill the main
+    # session as a subagent run: no agent transcript, no record.
+    agent_transcript = payload.get("agent_transcript_path")
+    if not agent_transcript:
+        return
+    totals, model, escalated = parse_transcript(agent_transcript)
     record = {
         "ts": round(time.time(), 3),
         "session_id": payload.get("session_id"),

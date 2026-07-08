@@ -81,7 +81,7 @@ def report(records):
         lines.append(
             f"| {name} | {group['runs']} | {group['escalations']} "
             f"| {group['in']:,} | {group['out']:,} "
-            f"| ${group['cost']:.4f} | ${group['baseline']:.4f} |"
+            f"| ${group['cost']:.2f} | ${group['baseline']:.2f} |"
         )
         for key in total:
             total[key] += group[key]
@@ -90,9 +90,9 @@ def report(records):
     rate = total["escalations"] / total["runs"] * 100
     lines += [
         "",
-        f"**Total cost:** ${total['cost']:.4f} | "
-        f"**baseline (all-{BASELINE[0]}):** ${total['baseline']:.4f} | "
-        f"**saved:** ${saved:.4f} ({pct:.1f}%)",
+        f"**Total cost:** ${total['cost']:.2f} | "
+        f"**baseline (all-{BASELINE[0]}):** ${total['baseline']:.2f} | "
+        f"**saved:** ${saved:.2f} ({pct:.1f}%)",
         f"**Escalation rate:** {total['escalations']}/{total['runs']} runs ({rate:.1f}%)",
         "",
         "A high escalation rate on an agent means its decision-table row routes "
