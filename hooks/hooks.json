@@ -1,5 +1,25 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'FRUGAL ROUTING ACTIVE — apply this policy to every task, every response. No drift:'; awk '/^---$/{c++; next} c>=2' \"${CLAUDE_PLUGIN_ROOT}/skills/routing/SKILL.md\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo 'FRUGAL ROUTING ACTIVE — deterministic tool first, then cheapest capable agent (scout/extractor -> mechanic/builder -> main loop). Escalate only on verified failure.'"
+          }
+        ]
+      }
+    ],
     "SubagentStop": [
       {
         "hooks": [
