@@ -1,0 +1,11 @@
+{
+  "name": "frugal-marketplace",
+  "owner": { "name": "Thomas Langbroek" },
+  "plugins": [
+    {
+      "name": "frugal",
+      "source": "./",
+      "description": "Cost-optimised agent router for Claude Code."
+    }
+  ]
+}
