@@ -9,7 +9,8 @@ while IFS= read -r line; do
   prompt=$(printf '%s' "$line" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prompt"])')
   expect=$(printf '%s' "$line" | python3 -c 'import json,sys; print(json.load(sys.stdin)["expect"])')
   echo "--- expect=$expect prompt=$prompt"
-  output=$(claude -p "$prompt" --output-format stream-json --max-turns 6 2>/dev/null)
+  # --verbose is mandatory with --print + stream-json; without it the CLI exits 1
+  output=$(claude -p "$prompt" --output-format stream-json --verbose --max-turns 6 < /dev/null 2>&1)
   if printf '%s' "$output" | grep -q "\"subagent_type\"[^,}]*$expect"; then
     echo "PASS"; pass=$((pass+1))
   else
