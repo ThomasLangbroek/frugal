@@ -15,6 +15,8 @@ If `.claude/routing-overrides.md` exists in the project, read it first. Its rule
 
 Before any delegation: if a deterministic command solves the task (grep, rg, jq, yq, sed, awk, git, terraform, kubectl, helm, docker, a compiler, a test runner), run it. No LLM call. Reasoning models are for reasoning.
 
+Step 1 covers **one-shot** commands only: you know the exact command and its output answers the question directly. The moment discovery turns iterative — a second search informed by the first, listing directories to decide what to read next, reading files to summarise them — it is no longer a tool call, it is a locate/extract task. Bright line: the third search/list/read operation on the same question means you are exploring inline; stop and hand the whole question to `scout` or `extractor`, including what you already learned. Every raw tool result you ingest is paid at main-loop rates; a haiku worker reads the same bytes at a fraction of the cost and returns a summary.
+
 ## Step 2: decision table
 
 Decompose the request into sub-tasks. For each, match signals to the cheapest capable agent:
