@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Frugal metrics report: cost per agent tier, escalation rate, savings vs baseline.
 
-Prices are USD per million tokens (verified 08-07-2026). Cache reads bill at
+Prices are USD per million tokens (verified 09-07-2026). Cache reads bill at
 0.1x input, cache writes at 1.25x input (5-minute TTL). Edit PRICES when
 Anthropic pricing changes.
 """
