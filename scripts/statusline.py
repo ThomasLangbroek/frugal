@@ -8,11 +8,11 @@ Wire it into your statusline command; see README.
 import argparse
 import os
 
-from stats import BASELINE, cost_usd, load
+from stats import baseline_cost, cost_usd, load
 
 
 def saved(records):
-    return sum(cost_usd(r, BASELINE[1]) - cost_usd(r) for r in records)
+    return sum(baseline_cost(r) - cost_usd(r) for r in records)
 
 
 def main():

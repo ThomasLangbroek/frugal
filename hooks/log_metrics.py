@@ -76,6 +76,28 @@ def parse_transcript(path):
     return totals, model, escalated
 
 
+def main_model_from(path, tail_bytes=65536):
+    """Last assistant model in the main session transcript: the main-loop
+    model at the time this worker ran. Tail-read only, so the hook stays
+    cheap however long the session grows."""
+    try:
+        with open(path, "rb") as handle:
+            handle.seek(0, 2)
+            handle.seek(max(0, handle.tell() - tail_bytes))
+            lines = handle.read().decode("utf-8", "replace").splitlines()
+    except OSError:
+        return None
+    for line in reversed(lines):
+        try:
+            message = json.loads(line).get("message") or {}
+        except (json.JSONDecodeError, AttributeError):
+            continue
+        if isinstance(message, dict) and message.get("role") == "assistant" \
+                and message.get("model"):
+            return message["model"]
+    return None
+
+
 def main():
     payload = json.load(sys.stdin)
     # agent_transcript_path is the subagent's own transcript;
@@ -91,6 +113,7 @@ def main():
         "agent_id": payload.get("agent_id"),
         "agent_type": payload.get("agent_type"),
         "model": model,
+        "main_model": main_model_from(payload.get("transcript_path") or ""),
         "escalated": escalated,
         **totals,
     }

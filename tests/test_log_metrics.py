@@ -121,6 +121,35 @@ def test_no_agent_transcript_no_record(tmp_path):
     assert not metrics.exists()
 
 
+def test_records_main_loop_model_from_main_transcript(tmp_path):
+    worker = make_transcript(tmp_path, [
+        {"message": {"role": "assistant", "model": "claude-haiku-4-5",
+                     "usage": {"input_tokens": 10, "output_tokens": 2}}},
+    ])
+    main_transcript = tmp_path / "main.jsonl"
+    main_transcript.write_text("\n".join(json.dumps(l) for l in [
+        {"message": {"role": "user", "content": "hi"}},
+        {"message": {"role": "assistant", "model": "claude-fable-5",
+                     "usage": {"input_tokens": 1, "output_tokens": 1}}},
+    ]))
+    payload = payload_for(worker, "frugal:scout")
+    payload["transcript_path"] = str(main_transcript)
+    metrics = run_hook(tmp_path, payload)
+    record = json.loads(metrics.read_text().strip())
+    assert record["main_model"] == "claude-fable-5"
+    assert record["model"] == "claude-haiku-4-5"
+
+
+def test_missing_main_transcript_gives_null_main_model(tmp_path):
+    worker = make_transcript(tmp_path, [
+        {"message": {"role": "assistant", "model": "claude-haiku-4-5",
+                     "usage": {"input_tokens": 10, "output_tokens": 2}}},
+    ])
+    metrics = run_hook(tmp_path, payload_for(worker, "frugal:scout"))
+    record = json.loads(metrics.read_text().strip())
+    assert record["main_model"] is None
+
+
 def test_never_crashes_on_garbage(tmp_path):
     metrics = tmp_path / "metrics.jsonl"
     proc = subprocess.run(

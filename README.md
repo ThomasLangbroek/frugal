@@ -58,7 +58,7 @@ A `SubagentStop` hook logs one jsonl line per worker run (agent, model, token us
 /frugal:router-stats
 ```
 
-to get cost per tier, escalation rate, and estimated savings versus running everything on the top-tier model. Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. Learning is deliberately offline: read the report, edit the decision table.
+to get cost per tier, escalation rate, and estimated savings versus running the same work on your session's actual main-loop model (recorded per run; older records without it are compared against the top tier). Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. Learning is deliberately offline: read the report, edit the decision table.
 
 ## Enforcement
 

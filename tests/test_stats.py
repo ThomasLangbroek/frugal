@@ -70,6 +70,22 @@ def test_statusline_silent_without_metrics(tmp_path):
     assert out == ""
 
 
+def test_baseline_follows_main_model(tmp_path):
+    # haiku worker ($1/MTok in) under an opus main loop ($5/MTok in):
+    # baseline is opus, not the top tier -> $4 saved, not $9
+    path = write_metrics(tmp_path, [
+        {"agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "main_model": "claude-opus-4-8", "escalated": False,
+         "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+    ])
+    out = subprocess.run(
+        [sys.executable, str(ROOT / "scripts" / "statusline.py"), "--path", str(path)],
+        capture_output=True, text=True, check=True,
+    ).stdout.strip()
+    assert out == "frugal $4.00 saved"
+
+
 def test_unknown_model_priced_as_baseline(tmp_path):
     path = write_metrics(tmp_path, [
         {"agent_type": "other", "model": "mystery-model", "escalated": False,

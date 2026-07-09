@@ -39,6 +39,12 @@ def cost_usd(record, price=None):
     ) / 1_000_000
 
 
+def baseline_cost(record):
+    """What this run would have cost on the session's main-loop model.
+    Records predating the main_model field fall back to the top tier."""
+    return cost_usd(record, price_for(record.get("main_model")))
+
+
 def load(path):
     records = []
     try:
@@ -68,7 +74,7 @@ def report(records):
         group["in"] += record.get("input_tokens", 0)
         group["out"] += record.get("output_tokens", 0)
         group["cost"] += cost_usd(record)
-        group["baseline"] += cost_usd(record, BASELINE[1])
+        group["baseline"] += baseline_cost(record)
     lines = [
         "# Frugal routing report",
         "",
@@ -91,7 +97,7 @@ def report(records):
     lines += [
         "",
         f"**Total cost:** ${total['cost']:.2f} | "
-        f"**baseline (all-{BASELINE[0]}):** ${total['baseline']:.2f} | "
+        f"**baseline (main-loop rates):** ${total['baseline']:.2f} | "
         f"**saved:** ${saved:.2f} ({pct:.1f}%)",
         f"**Escalation rate:** {total['escalations']}/{total['runs']} runs ({rate:.1f}%)",
         "",
