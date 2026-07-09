@@ -10,6 +10,18 @@ def test_setup_statusline_skill_is_command_only():
     assert "consent" in text.lower()
 
 
+def test_models_skill_knows_agents_models_and_overrides_file():
+    text = (ROOT / "skills" / "models" / "SKILL.md").read_text()
+    assert "disable-model-invocation: true" in text
+    for agent in ("scout", "extractor", "mechanic", "builder", "sage"):
+        assert agent in text
+    for model in ("haiku", "sonnet", "opus", "fable"):
+        assert model in text
+    assert ".claude/routing-overrides.md" in text
+    assert "`model` parameter" in text
+    assert "reset" in text
+
+
 def test_routing_skill_covers_all_agents_and_protocol():
     text = (ROOT / "skills" / "routing" / "SKILL.md").read_text()
     for agent in ("scout", "extractor", "mechanic", "builder", "sage"):
