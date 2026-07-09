@@ -118,6 +118,12 @@ Deliberately no synthetic eval harness: headless scenario evals proved flaky (ot
 
 Metrics are agent names, model ids, token counts and an escalation flag — one local jsonl line per worker run, written to `~/.claude/frugal/metrics.jsonl`. No prompt content, no file paths from your projects, no telemetry, nothing leaves your machine. Delete the file at any time; the report simply starts over.
 
+## For teams
+
+Rollout is two commands per person (see Install) and no workflow change; routing is automatic. Work normally for a week, then review `/frugal:router-stats` together and tune the decision table or `FRUGAL_INLINE_BUDGET` if the guard fires too often or too rarely.
+
+Be precise about the cost claim when you pitch it internally: in our measurements delegated work costs **~85% less** than the same work on the top-tier model — cents instead of dollars per task. That saving applies to the *delegated* portion of a session, not the whole bill. Design, debugging and review stay on the expensive model on purpose; what frugal removes is paying reasoning rates for grep. Every install measures itself locally, so nobody has to take this README's word for anything.
+
 ## Honest trade-offs
 
 - **Advisory unless the guard hook is enabled.** The skill steers routing; only the hook enforces it.
