@@ -1,5 +1,7 @@
 # frugal
 
+[![ci](https://github.com/ThomasLangbroek/frugal/actions/workflows/ci.yml/badge.svg)](https://github.com/ThomasLangbroek/frugal/actions/workflows/ci.yml)
+
 A cost-optimised agent router for [Claude Code](https://code.claude.com). Frugal teaches the main loop to send every sub-task to the cheapest execution strategy that can succeed, and to escalate only on verified failure:
 
 ```
@@ -58,35 +60,35 @@ A `SubagentStop` hook logs one jsonl line per worker run (agent, model, token us
 
 to get cost per tier, escalation rate, and estimated savings versus running everything on the top-tier model. Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. Learning is deliberately offline: read the report, edit the decision table.
 
-## Hard budget control (optional)
+## Enforcement
 
-Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. If you need enforcement, wire the shipped guard as a PreToolUse hook in your `settings.json`. It blocks expensive-tier agent spawns unless `FRUGAL_ALLOW_EXPENSIVE=1` is set:
+Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. Frugal therefore enforces on three levels, the first two active out of the box:
 
-```json
-{
-  "hooks": {
-    "PreToolUse": [
-      {
-        "matcher": "Agent",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "bash ~/.claude/plugins/cache/frugal-marketplace/frugal/*/hooks/guard_expensive.sh"
-          }
-        ]
-      }
-    ]
-  }
-}
-```
+1. **Policy injection.** A `SessionStart` hook puts the routing policy in context at every session start; a `UserPromptSubmit` hook re-pins a one-line reminder on every prompt. No drift, nothing to invoke manually.
+2. **Inline-exploration budget.** A `PreToolUse` guard counts search-type tool calls (Read, Grep, Glob, search-y Bash) in the main loop. Past the budget (default 5 per prompt) further ones are denied with a pointer to the cheap workers. The budget resets on any delegation or new prompt; worker agents are never throttled. Non-search commands (git, test runners, builds) are never blocked.
+3. **Expensive-tier guard (opt-in).** `hooks/guard_expensive.sh` blocks `sage` spawns entirely. Wire it as a `PreToolUse` hook with matcher `Agent` in your `settings.json` if you want a hard ceiling.
 
 Judgement lives in prompts; enforcement lives in hooks.
+
+## Knobs
+
+| Knob | Default | Effect |
+|---|---|---|
+| `FRUGAL_INLINE_BUDGET` | `5` | Inline search ops allowed per prompt before the guard denies |
+| `FRUGAL_ALLOW_INLINE=1` | unset | Disables the inline-exploration guard for the session |
+| `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage` spawns past the opt-in expensive-tier guard |
+| `FRUGAL_METRICS_PATH` | `~/.claude/frugal/metrics.jsonl` | Where worker-run metrics are written |
+| `/frugal:models` | agent defaults | Per-project model overrides, e.g. `/frugal:models scout=sonnet` |
+| `.claude/routing-overrides.md` | none | Per-project routing rules; read first, always win |
+
+Too aggressive for your taste? `FRUGAL_ALLOW_INLINE=1` in your environment turns the hard guard off while keeping the advisory policy. Want it gone entirely? `/plugin uninstall frugal` — frugal keeps no state outside the metrics file.
 
 ## Configuration
 
 - Defaults are the decision table in `skills/routing/SKILL.md`.
 - Per-project overrides: create `.claude/routing-overrides.md` in your project. The skill reads it first and its rules win.
-- No Fable access on your plan? Edit `agents/sage.md` frontmatter to `model: opus` for an Opus ceiling.
+- Per-project model mapping: `/frugal:models` shows it, `/frugal:models scout=sonnet builder=opus` changes it, `/frugal:models reset` restores defaults. Overrides live in the project, not the plugin, and survive updates.
+- No Fable access on your plan? `/frugal:models sage=opus`, or edit `agents/sage.md` frontmatter.
 - Multi-provider: see [docs/litellm-recipe.md](docs/litellm-recipe.md).
 
 ## Statusline segment (optional)
@@ -111,6 +113,10 @@ It prints nothing when no metrics exist yet, so your statusline stays clean.
 ## Evaluating routing quality
 
 Deliberately no synthetic eval harness: headless scenario evals proved flaky (other plugins' skills win trigger races, model nondeterminism) while measuring little. Evaluate with real usage instead: work normally for a few days, then run `/frugal:router-stats` and read delegation rate, tier mix, and escalation rate. High escalations on one agent means its table row routes too low; near-zero savings means work is not being delegated.
+
+## Privacy
+
+Metrics are agent names, model ids, token counts and an escalation flag — one local jsonl line per worker run, written to `~/.claude/frugal/metrics.jsonl`. No prompt content, no file paths from your projects, no telemetry, nothing leaves your machine. Delete the file at any time; the report simply starts over.
 
 ## Honest trade-offs
 
