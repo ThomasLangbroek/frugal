@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.0 - 10-07-2026
+- Honest savings: net cost includes the worker reply re-ingested at main-loop rates (`handoff_output_tokens`, final response only); statusline and report both use it.
+- Per-run `duration_ms` from transcript timestamps; average duration per agent in the report.
+- Metrics-to-routing feedback: `stats.py --advice` flags miscalibrated routes (escalation >30%, net >= baseline, fat handoffs) at SessionStart; silent when healthy.
+- Reply caps on mechanic (150 words), builder (250), sage (500, overflow to scratch file); code never echoed back.
+- Context-handoff routing rule: pass pointers, not pasted content.
+- guard_inline fixes: write-redirected commands (`cat >> f`) no longer counted; shell prefixes (`cd x && grep`) no longer dodge the counter.
+
+## 0.8.0 - 09-07-2026
+- Savings baseline follows the session's main-loop model instead of always the top tier.
+
+## 0.7.2 - 09-07-2026
+- Dependency bumps (GitHub Actions checkout, setup-python).
+
 ## 0.7.1 - 09-07-2026
 - Pricing verification date refresh; first change through the gated PR flow.
 
