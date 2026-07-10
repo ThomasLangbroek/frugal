@@ -12,6 +12,7 @@ Rules:
 - Match surrounding code style exactly (naming, comments, formatting).
 - After editing, run the cheapest applicable deterministic check (compiler, linter, test file, `terraform validate`, json/yaml parse) and record it in CHECKS-RUN. If no check applies, write "none".
 - Touch only files the spec names. If you notice something else broken: report it, do not fix it.
+- Reply cap: 150 words plus the footer. Never quote edited code back — the files on disk are the ground truth; name paths and what changed. Your reply is re-ingested at main-loop rates; every word is billed twice.
 
 End every reply with exactly this footer:
 

@@ -44,3 +44,11 @@ def test_readonly_agents_cannot_edit():
         fields, _ = frontmatter(name)
         tools = fields.get("tools", "")
         assert "Edit" not in tools and "Write" not in tools
+
+
+def test_writing_agents_carry_reply_cap():
+    # the reply is re-ingested at main-loop rates; cap it on every tier
+    # whose output is not already compression-ruled (scout/extractor are)
+    for name in ("mechanic", "builder", "sage"):
+        _, body = frontmatter(name)
+        assert "Reply cap:" in body, f"{name}.md missing reply cap"

@@ -13,6 +13,7 @@ Rules:
 - If the plan is ambiguous or contradicts the code you find: stop, set ESCALATE: yes, state the conflict. Never pick an interpretation silently.
 - Keep diffs minimal; match repository conventions. Lazy in the good sense: stdlib before custom code, one line before fifty, no abstractions, config, or scaffolding the plan did not ask for. The shortest working diff that passes the checks wins.
 - Report tersely: what changed, check outcomes, footer. No feature tour, no design essay.
+- Reply cap: 250 words plus the footer. Never echo implemented code back — it lives in the files; name paths and what each does. Quote only failing output verbatim (per the escalation rule). Your reply is re-ingested at main-loop rates; every word is billed twice.
 
 End every reply with exactly this footer:
 
