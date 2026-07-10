@@ -167,3 +167,35 @@ def test_missing_transcript_still_logs(tmp_path):
     record = json.loads(metrics.read_text().strip())
     assert record["model"] is None
     assert record["input_tokens"] == 0
+
+
+def test_duration_and_handoff_recorded(tmp_path):
+    transcript = make_transcript(tmp_path, [
+        {"timestamp": "2026-07-10T10:00:00.000Z",
+         "message": {"role": "user", "content": "go"}},
+        {"timestamp": "2026-07-10T10:00:05.000Z",
+         "message": {"role": "assistant", "id": "msg_1",
+                     "model": "claude-haiku-4-5",
+                     "usage": {"input_tokens": 100, "output_tokens": 500}}},
+        {"timestamp": "2026-07-10T10:00:12.500Z",
+         "message": {"role": "assistant", "id": "msg_2",
+                     "model": "claude-haiku-4-5",
+                     "usage": {"input_tokens": 200, "output_tokens": 40}}},
+    ])
+    metrics = run_hook(tmp_path, payload_for(transcript, "frugal:scout"))
+    record = json.loads(metrics.read_text().strip())
+    assert record["duration_ms"] == 12500
+    # only the final response's output re-enters the main loop
+    assert record["handoff_output_tokens"] == 40
+    assert record["output_tokens"] == 540
+
+
+def test_no_timestamps_gives_null_duration(tmp_path):
+    transcript = make_transcript(tmp_path, [
+        {"message": {"role": "assistant", "model": "claude-haiku-4-5",
+                     "usage": {"input_tokens": 10, "output_tokens": 2}}},
+    ])
+    metrics = run_hook(tmp_path, payload_for(transcript, "frugal:scout"))
+    record = json.loads(metrics.read_text().strip())
+    assert record["duration_ms"] is None
+    assert record["handoff_output_tokens"] == 2

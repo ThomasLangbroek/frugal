@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import time
+from datetime import datetime
 
 USAGE_KEYS = (
     "input_tokens",
@@ -27,21 +28,39 @@ def message_texts(content):
     return []
 
 
+def entry_ts(entry):
+    raw = entry.get("timestamp")
+    if not isinstance(raw, str):
+        return None
+    try:
+        return datetime.fromisoformat(raw.replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
 def parse_transcript(path):
     totals = dict.fromkeys(USAGE_KEYS, 0)
     by_id = {}
     model = None
     escalated = False
+    first_ts = last_ts = None
+    # the LAST response's output is (approximately) the reply the main
+    # loop re-ingests; intermediate turns' output stays in the worker
+    final = None  # ("id", msg_id) or ("direct", output_tokens)
     try:
         handle = open(path)
     except OSError:
-        return totals, model, escalated
+        return totals, model, escalated, None, 0
     with handle:
         for line in handle:
             try:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
+            ts = entry_ts(entry)
+            if ts is not None:
+                first_ts = ts if first_ts is None else first_ts
+                last_ts = ts
             message = entry.get("message")
             if not isinstance(message, dict):
                 continue
@@ -64,16 +83,29 @@ def parse_transcript(path):
                         value = usage.get(key)
                         if isinstance(value, (int, float)):
                             totals[key] += value
+                    out = usage.get("output_tokens")
+                    if isinstance(out, (int, float)):
+                        final = ("direct", out)
                     continue
                 bucket = by_id.setdefault(msg_id, dict.fromkeys(USAGE_KEYS, 0))
                 for key in USAGE_KEYS:
                     value = usage.get(key)
                     if isinstance(value, (int, float)):
                         bucket[key] = max(bucket[key], value)
+                final = ("id", msg_id)
     for bucket in by_id.values():
         for key in USAGE_KEYS:
             totals[key] += bucket[key]
-    return totals, model, escalated
+    if final is None:
+        handoff = 0
+    elif final[0] == "id":
+        handoff = by_id[final[1]]["output_tokens"]
+    else:
+        handoff = final[1]
+    duration_ms = None
+    if first_ts is not None and last_ts is not None:
+        duration_ms = int(round((last_ts - first_ts) * 1000))
+    return totals, model, escalated, duration_ms, handoff
 
 
 def main_model_from(path, tail_bytes=65536):
@@ -106,7 +138,8 @@ def main():
     agent_transcript = payload.get("agent_transcript_path")
     if not agent_transcript or not payload.get("agent_type"):
         return  # typeless stops are internal machinery, not routed work
-    totals, model, escalated = parse_transcript(agent_transcript)
+    totals, model, escalated, duration_ms, handoff = parse_transcript(
+        agent_transcript)
     record = {
         "ts": round(time.time(), 3),
         "session_id": payload.get("session_id"),
@@ -115,6 +148,8 @@ def main():
         "model": model,
         "main_model": main_model_from(payload.get("transcript_path") or ""),
         "escalated": escalated,
+        "duration_ms": duration_ms,
+        "handoff_output_tokens": handoff,
         **totals,
     }
     path = os.environ.get("FRUGAL_METRICS_PATH") or os.path.expanduser(

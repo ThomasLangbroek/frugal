@@ -1,4 +1,4 @@
 __pycache__/
 *.pyc
 .pytest_cache/
-metrics.jsonl
+metrics.jsonl*

@@ -45,6 +45,21 @@ def baseline_cost(record):
     return cost_usd(record, price_for(record.get("main_model")))
 
 
+def handoff_cost(record):
+    """The worker's final reply is re-ingested by the main loop as input
+    tokens at main-loop rates. Records predating handoff_output_tokens
+    fall back to total output_tokens (a conservative overestimate)."""
+    p_in, _ = price_for(record.get("main_model"))
+    tokens = record.get("handoff_output_tokens",
+                        record.get("output_tokens", 0))
+    return tokens * p_in / 1_000_000
+
+
+def net_cost(record):
+    """True cost of the delegation: worker spend plus re-ingestion."""
+    return cost_usd(record) + handoff_cost(record)
+
+
 def load(path):
     records = []
     try:
@@ -66,40 +81,59 @@ def report(records):
     if not records:
         return "No metrics recorded yet (no subagent runs logged)."
     groups = defaultdict(lambda: {"runs": 0, "escalations": 0, "in": 0,
-                                  "out": 0, "cost": 0.0, "baseline": 0.0})
+                                  "out": 0, "net": 0.0, "baseline": 0.0,
+                                  "dur_ms": 0, "dur_n": 0})
     for record in records:
         group = groups[record.get("agent_type") or "unknown"]
         group["runs"] += 1
         group["escalations"] += 1 if record.get("escalated") else 0
         group["in"] += record.get("input_tokens", 0)
         group["out"] += record.get("output_tokens", 0)
-        group["cost"] += cost_usd(record)
+        group["net"] += net_cost(record)
         group["baseline"] += baseline_cost(record)
+        if isinstance(record.get("duration_ms"), (int, float)):
+            group["dur_ms"] += record["duration_ms"]
+            group["dur_n"] += 1
     lines = [
         "# Frugal routing report",
         "",
-        "| Agent | Runs | Escalations | Input tok | Output tok | Cost | At baseline |",
-        "|---|---|---|---|---|---|---|",
+        "| Agent | Runs | Escalations | Input tok | Output tok "
+        "| Net cost | At baseline | Avg s |",
+        "|---|---|---|---|---|---|---|---|",
     ]
-    total = {"runs": 0, "escalations": 0, "cost": 0.0, "baseline": 0.0}
+    total = {"runs": 0, "escalations": 0, "net": 0.0, "baseline": 0.0}
+    losing = []
     for name in sorted(groups):
         group = groups[name]
+        avg_s = (f"{group['dur_ms'] / group['dur_n'] / 1000:.1f}"
+                 if group["dur_n"] else "-")
         lines.append(
             f"| {name} | {group['runs']} | {group['escalations']} "
             f"| {group['in']:,} | {group['out']:,} "
-            f"| ${group['cost']:.2f} | ${group['baseline']:.2f} |"
+            f"| ${group['net']:.2f} | ${group['baseline']:.2f} | {avg_s} |"
         )
+        if group["net"] >= group["baseline"]:
+            losing.append(name)
         for key in total:
             total[key] += group[key]
-    saved = total["baseline"] - total["cost"]
+    saved = total["baseline"] - total["net"]
     pct = (saved / total["baseline"] * 100) if total["baseline"] else 0.0
     rate = total["escalations"] / total["runs"] * 100
     lines += [
         "",
-        f"**Total cost:** ${total['cost']:.2f} | "
+        f"**Net cost (worker + reply re-ingestion):** ${total['net']:.2f} | "
         f"**baseline (main-loop rates):** ${total['baseline']:.2f} | "
         f"**saved:** ${saved:.2f} ({pct:.1f}%)",
         f"**Escalation rate:** {total['escalations']}/{total['runs']} runs ({rate:.1f}%)",
+    ]
+    if losing:
+        lines += [
+            "",
+            f"**Delegation loses money on:** {', '.join(losing)} — net cost "
+            "meets or exceeds the main-loop baseline; do this work inline or "
+            "route it cheaper.",
+        ]
+    lines += [
         "",
         "A high escalation rate on an agent means its decision-table row routes "
         "too low. Near-zero savings means work is not being delegated; check the "
