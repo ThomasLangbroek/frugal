@@ -15,7 +15,12 @@ import sys
 import tempfile
 
 SEARCHY_TOOLS = {"Read", "Grep", "Glob"}
-SEARCHY_BASH = re.compile(r"\s*(rg|grep|find|fd|ls|tree|cat|head|tail|awk|jq|yq)\b")
+# a searchy word counts at any command position (start, or after ; && || | ` $( or
+# newline, with optional VAR=x assignments), so prefixes like `cd x && grep` or
+# `export F=1; rg` cannot dodge the counter. Words in ordinary arguments do not match.
+SEARCHY_BASH = re.compile(
+    r"(?:^|[;&|`\n]|\$\()\s*(?:\w+=\S*\s+)*"
+    r"(rg|grep|find|fd|ls|tree|cat|head|tail|awk|jq|yq)\b")
 # stdout redirected to a file means the command writes, it does not explore.
 # `2>` / `2>&1` are stderr plumbing common in real searches; keep counting those.
 WRITE_REDIRECT = re.compile(r"(?<![\d&])>|&>")
@@ -47,7 +52,7 @@ def main():
         if tool != "Bash":
             return 0
         command = (payload.get("tool_input") or {}).get("command", "")
-        if not SEARCHY_BASH.match(command):
+        if not SEARCHY_BASH.search(command):
             return 0
         if WRITE_REDIRECT.search(command):
             return 0  # cat/awk/etc. writing a file is not exploration

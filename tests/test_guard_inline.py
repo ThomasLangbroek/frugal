@@ -101,3 +101,25 @@ def test_stderr_redirect_still_counted():
     for _ in range(5):
         run_guard(payload("Bash", session, command="rg pattern src/ 2>/dev/null"))
     assert run_guard(payload("Bash", session, command="find . -name x 2>&1")).returncode == 2
+
+
+def test_prefixed_search_commands_counted():
+    # prefixes must not dodge the counter
+    session = uuid.uuid4().hex
+    cmds = [
+        "export FOO=1; rg pattern src/",
+        "cd /tmp && grep -r x .",
+        "FOO=bar rg pattern",
+        "true || find . -name x",
+        "echo start\nls -la",
+    ]
+    for c in cmds:
+        run_guard(payload("Bash", session, command=c))
+    assert run_guard(payload("Bash", session, command="cd /x && cat file")).returncode == 2
+
+
+def test_searchy_word_as_argument_ignored():
+    session = uuid.uuid4().hex
+    for _ in range(10):
+        assert run_guard(payload(
+            "Bash", session, command='git commit -m "fix cat and grep handling"')).returncode == 0
