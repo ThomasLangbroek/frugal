@@ -16,6 +16,9 @@ import tempfile
 
 SEARCHY_TOOLS = {"Read", "Grep", "Glob"}
 SEARCHY_BASH = re.compile(r"\s*(rg|grep|find|fd|ls|tree|cat|head|tail|awk|jq|yq)\b")
+# stdout redirected to a file means the command writes, it does not explore.
+# `2>` / `2>&1` are stderr plumbing common in real searches; keep counting those.
+WRITE_REDIRECT = re.compile(r"(?<![\d&])>|&>")
 DEFAULT_BUDGET = 5
 
 
@@ -46,6 +49,8 @@ def main():
         command = (payload.get("tool_input") or {}).get("command", "")
         if not SEARCHY_BASH.match(command):
             return 0
+        if WRITE_REDIRECT.search(command):
+            return 0  # cat/awk/etc. writing a file is not exploration
     path = counter_path(payload)
     try:
         count = int(open(path).read())

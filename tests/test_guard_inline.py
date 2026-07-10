@@ -84,3 +84,20 @@ def test_garbage_input_allows():
     proc = subprocess.run(["python3", str(SCRIPT)], input="not json",
                           text=True, capture_output=True, env=ENV)
     assert proc.returncode == 0
+
+
+def test_write_redirect_not_counted():
+    # `cat >> file` is a write, not exploration (the bug that bit us live)
+    session = uuid.uuid4().hex
+    for _ in range(10):
+        assert run_guard(payload(
+            "Bash", session, command="cat >> tests/test_x.py <<'EOF'\nx\nEOF")).returncode == 0
+    assert run_guard(payload("Bash", session, command="awk '{print}' a > b")).returncode == 0
+
+
+def test_stderr_redirect_still_counted():
+    # 2>/dev/null and 2>&1 are search plumbing, not writes
+    session = uuid.uuid4().hex
+    for _ in range(5):
+        run_guard(payload("Bash", session, command="rg pattern src/ 2>/dev/null"))
+    assert run_guard(payload("Bash", session, command="find . -name x 2>&1")).returncode == 2
