@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "echo 'FRUGAL ROUTING ACTIVE — apply this policy to every task, every response. No drift:'; awk '/^---$/{c++; next} c>=2' \"${CLAUDE_PLUGIN_ROOT}/skills/routing/SKILL.md\""
+            "command": "echo 'FRUGAL ROUTING ACTIVE — apply this policy to every task, every response. No drift:'; awk '/^---$/{c++; next} c>=2' \"${CLAUDE_PLUGIN_ROOT}/skills/routing/SKILL.md\"; python3 \"${CLAUDE_PLUGIN_ROOT}/scripts/stats.py\" --advice 2>/dev/null || true"
           }
         ]
       }

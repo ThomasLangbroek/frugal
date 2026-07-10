@@ -154,3 +154,60 @@ def test_avg_duration_in_report(tmp_path):
     ])
     out = run_stats(path)
     assert "5.0" in out  # avg of 4s and 6s
+
+
+
+def run_advice(path):
+    return subprocess.run(
+        [sys.executable, str(SCRIPT), "--path", str(path), "--advice"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+
+
+def recent(agent_type, n, **overrides):
+    import time as _time
+    base = {"agent_type": agent_type, "model": "claude-haiku-4-5",
+            "main_model": "claude-fable-5", "escalated": False,
+            "ts": _time.time(), "input_tokens": 100_000,
+            "output_tokens": 5_000, "handoff_output_tokens": 500,
+            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
+    return [{**base, **overrides} for _ in range(n)]
+
+
+def test_advice_silent_when_healthy(tmp_path):
+    path = write_metrics(tmp_path, recent("frugal:scout", 10))
+    assert run_advice(path) == ""
+
+
+def test_advice_flags_high_escalation(tmp_path):
+    runs = recent("frugal:scout", 6) + recent("frugal:scout", 4, escalated=True)
+    path = write_metrics(tmp_path, runs)
+    out = run_advice(path)
+    assert "frugal:scout" in out and "one tier up" in out
+
+
+def test_advice_flags_losing_route(tmp_path):
+    # sonnet worker under haiku main loop: net always exceeds baseline
+    path = write_metrics(tmp_path, recent(
+        "frugal:extractor", 6, model="claude-sonnet-5",
+        main_model="claude-haiku-4-5"))
+    out = run_advice(path)
+    assert "loses money" in out
+
+
+def test_advice_flags_fat_handoffs(tmp_path):
+    path = write_metrics(tmp_path, recent(
+        "frugal:mechanic", 6, handoff_output_tokens=5_000))
+    out = run_advice(path)
+    assert "reply cap is not holding" in out
+
+
+def test_advice_needs_minimum_runs(tmp_path):
+    path = write_metrics(tmp_path, recent("frugal:scout", 4, escalated=True))
+    assert run_advice(path) == ""
+
+
+def test_advice_ignores_stale_records(tmp_path):
+    path = write_metrics(tmp_path, recent(
+        "frugal:scout", 10, escalated=True, ts=1.0))  # 1970: far outside window
+    assert run_advice(path) == ""

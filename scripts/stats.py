@@ -8,7 +8,14 @@ Anthropic pricing changes.
 import argparse
 import json
 import os
+import time
 from collections import defaultdict
+
+# --advice thresholds: only speak when a route is measurably miscalibrated
+ADVICE_MIN_RUNS = 5
+ADVICE_WINDOW_DAYS = 14
+ADVICE_ESCALATION_RATE = 0.30
+ADVICE_HANDOFF_TOKENS = 2000
 
 # substring match on the model id, first hit wins; values: (input, output) $/MTok
 PRICES = [
@@ -142,12 +149,64 @@ def report(records):
     return "\n".join(lines)
 
 
+def advice(records, now=None):
+    """Routing feedback: 0-3 one-liners, only when a route is measurably
+    miscalibrated over enough recent runs. Silent when healthy, so the
+    SessionStart hook stays clean."""
+    now = time.time() if now is None else now
+    cutoff = now - ADVICE_WINDOW_DAYS * 86400
+    recent = [r for r in records if r.get("ts", 0) >= cutoff]
+    groups = defaultdict(list)
+    for record in recent:
+        agent_type = record.get("agent_type")
+        if agent_type:
+            groups[agent_type].append(record)
+    lines = []
+    for name in sorted(groups):
+        runs = groups[name]
+        if len(runs) < ADVICE_MIN_RUNS:
+            continue
+        escalations = sum(1 for r in runs if r.get("escalated"))
+        rate = escalations / len(runs)
+        if rate > ADVICE_ESCALATION_RATE:
+            lines.append(
+                f"frugal advice: {name} escalated {rate:.0%} of "
+                f"{len(runs)} recent runs - its decision-table row routes "
+                "too low; send that task class one tier up.")
+        net = sum(net_cost(r) for r in runs)
+        base = sum(baseline_cost(r) for r in runs)
+        if net >= base:
+            lines.append(
+                f"frugal advice: {name} net cost (${net:.2f}) meets or "
+                f"exceeds the main-loop baseline (${base:.2f}) over "
+                f"{len(runs)} recent runs - delegation loses money; do this "
+                "work inline or route it cheaper.")
+        handoffs = [r.get("handoff_output_tokens") for r in runs
+                    if isinstance(r.get("handoff_output_tokens"), (int, float))]
+        if handoffs and sum(handoffs) / len(handoffs) > ADVICE_HANDOFF_TOKENS:
+            avg = sum(handoffs) / len(handoffs)
+            lines.append(
+                f"frugal advice: {name} replies average {avg:,.0f} tokens "
+                "re-ingested per run - its reply cap is not holding; demand "
+                "terser output or pointers to files.")
+    return "\n".join(lines)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--path", default=os.environ.get(
         "FRUGAL_METRICS_PATH",
         os.path.expanduser("~/.claude/frugal/metrics.jsonl")))
-    print(report(load(parser.parse_args().path)))
+    parser.add_argument("--advice", action="store_true",
+                        help="print routing feedback lines only (empty when healthy)")
+    args = parser.parse_args()
+    records = load(args.path)
+    if args.advice:
+        text = advice(records)
+        if text:
+            print(text)
+        return
+    print(report(records))
 
 
 if __name__ == "__main__":
