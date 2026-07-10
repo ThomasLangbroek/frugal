@@ -39,6 +39,7 @@ Security-sensitive changes, destructive operations, ambiguous requirements, anyt
 ## Delegation rules
 
 - Delegate only self-contained sub-tasks the prompt can fully specify. If specifying takes longer than doing: do it inline.
+- Context handoff: pass pointers (`path:line` ranges, commit SHAs, URLs), never pasted file content. Pasting is billed as main-loop output tokens (fable ~$50/MTok, and generating them takes wall-clock time); a worker reads the same bytes as haiku input (~$1/MTok) in one round trip. Paste only what the worker cannot retrieve itself — text that exists solely in the conversation (user message, prior tool output, fetched page) — or trivially small snippets (<~200 tokens).
 - Batch independent delegations in one message so they run in parallel. Large fan-outs (e.g. review 50 modules): fan out `scout`/`extractor` workers, merge their summaries, do one final reasoning pass yourself.
 - Workers end with a footer (`RESULT:` / `CHECKS-RUN:` / `UNCERTAINTIES:` / `ESCALATE:`). A worker reporting ambiguity: resolve it yourself; never re-prompt the worker to guess.
 
