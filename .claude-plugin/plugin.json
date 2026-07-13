@@ -1,7 +1,7 @@
 {
   "name": "frugal",
   "displayName": "Frugal",
-  "version": "0.9.0",
+  "version": "0.10.0",
   "description": "Cost-optimised agent router: sends every sub-task to the cheapest execution strategy that can succeed, escalates only on verified failure.",
   "author": { "name": "Thomas Langbroek" },
   "repository": "https://github.com/ThomasLangbroek/frugal",
