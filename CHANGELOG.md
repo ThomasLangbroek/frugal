@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.10.0 - 13-07-2026
+- Per-session savings table in the stats report: one row per `session_id`, newest first, using the same net-vs-baseline definition as the totals so rows reconcile. Sessions that ran opus-on-opus show negative savings (the true delta, no cheaper tier to route to).
+
 ## 0.9.0 - 10-07-2026
 - Honest savings: net cost includes the worker reply re-ingested at main-loop rates (`handoff_output_tokens`, final response only); statusline and report both use it.
 - Per-run `duration_ms` from transcript timestamps; average duration per agent in the report.
