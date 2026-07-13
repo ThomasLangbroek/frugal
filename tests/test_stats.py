@@ -157,6 +157,28 @@ def test_avg_duration_in_report(tmp_path):
 
 
 
+def test_session_table_groups_sorts_and_saves(tmp_path):
+    # two single-run sessions, haiku worker under fable main loop.
+    # each: 1M*$1 = $1.00 net vs 1M*$10 = $10.00 baseline -> $9.00 saved.
+    path = write_metrics(tmp_path, [
+        {"session_id": "aaaaaaaa-old", "ts": 100.0,
+         "agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "main_model": "claude-fable-5", "escalated": False,
+         "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+        {"session_id": "bbbbbbbb-new", "ts": 200.0,
+         "agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "main_model": "claude-fable-5", "escalated": False,
+         "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+    ])
+    out = run_stats(path)
+    assert "Per-session savings" in out
+    assert "$9.00 (90.0%)" in out
+    # newest first: the ts=200 session outranks the ts=100 one
+    assert out.index("bbbbbbbb") < out.index("aaaaaaaa")
+
+
 def run_advice(path):
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--path", str(path), "--advice"],

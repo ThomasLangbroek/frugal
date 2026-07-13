@@ -149,6 +149,42 @@ def report(records):
     return "\n".join(lines)
 
 
+def session_table(records):
+    """Per-session savings: one row per session_id, newest first. Uses the
+    same net-vs-baseline definition as report(), so rows reconcile with the
+    totals above."""
+    if not records:
+        return ""
+    groups = defaultdict(lambda: {"runs": 0, "net": 0.0, "baseline": 0.0,
+                                  "first": None})
+    for record in records:
+        group = groups[record.get("session_id") or "unknown"]
+        group["runs"] += 1
+        group["net"] += net_cost(record)
+        group["baseline"] += baseline_cost(record)
+        ts = record.get("ts")
+        if ts is not None and (group["first"] is None or ts < group["first"]):
+            group["first"] = ts
+    lines = [
+        "## Per-session savings",
+        "",
+        "| Session | When | Runs | Net cost | Baseline | Saved |",
+        "|---|---|---|---|---|---|",
+    ]
+    for sid in sorted(groups, key=lambda s: groups[s]["first"] or 0, reverse=True):
+        group = groups[sid]
+        when = (time.strftime("%d-%m-%Y %H:%M", time.localtime(group["first"]))
+                if group["first"] is not None else "?")
+        saved = group["baseline"] - group["net"]
+        pct = (saved / group["baseline"] * 100) if group["baseline"] else 0.0
+        lines.append(
+            f"| {sid[:8]} | {when} | {group['runs']} "
+            f"| ${group['net']:.2f} | ${group['baseline']:.2f} "
+            f"| ${saved:.2f} ({pct:.1f}%) |"
+        )
+    return "\n".join(lines)
+
+
 def advice(records, now=None):
     """Routing feedback: 0-3 one-liners, only when a route is measurably
     miscalibrated over enough recent runs. Silent when healthy, so the
@@ -207,6 +243,9 @@ def main():
             print(text)
         return
     print(report(records))
+    table = session_table(records)
+    if table:
+        print("\n" + table)
 
 
 if __name__ == "__main__":
