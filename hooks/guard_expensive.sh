@@ -1,21 +1,27 @@
 #!/usr/bin/env bash
-# PreToolUse guard: block expensive-tier subagent spawns unless explicitly allowed.
-# Ships UNWIRED. To enable, add to your settings.json hooks under PreToolUse
-# with matcher "Agent" (see README). Fail-open by design: any parse problem allows.
+# PreToolUse guard (matcher: Agent): block reasoning/expensive-tier subagent
+# spawns so locate/extract/summarise work is routed to cheap workers instead.
+# Wired in hooks.json under PreToolUse matcher "Agent".
+# Escape hatch: export FRUGAL_ALLOW_EXPENSIVE=1 to allow expensive agents this
+# session. Fail-open on unparseable input; a bare Agent call (no subagent_type)
+# is treated as general-purpose and blocked.
 [ "${FRUGAL_ALLOW_EXPENSIVE:-0}" = "1" ] && exit 0
 
 agent_type=$(python3 -c '
 import json, sys
 try:
     payload = json.load(sys.stdin)
-    print((payload.get("tool_input") or {}).get("subagent_type", ""))
 except Exception:
-    print("")
+    print("__PARSE_FAIL__"); sys.exit(0)
+print((payload.get("tool_input") or {}).get("subagent_type", ""))
 ' 2>/dev/null)
 
+[ "$agent_type" = "__PARSE_FAIL__" ] && exit 0          # bad input: fail open
+[ -z "$agent_type" ] && agent_type="general-purpose"    # omitted type defaults to general-purpose
+
 case "$agent_type" in
-  *sage*)
-    echo "frugal: blocked expensive-tier agent '$agent_type'. Set FRUGAL_ALLOW_EXPENSIVE=1 to allow this session." >&2
+  general-purpose|Explore|Plan|claude|sage|*:sage)
+    echo "frugal: blocked reasoning-tier agent '$agent_type'. Route locate/map -> frugal:scout, extract/summarise/classify -> frugal:extractor, mechanical edits -> frugal:mechanic or frugal:builder. If the task genuinely needs main-loop breadth, set FRUGAL_ALLOW_EXPENSIVE=1 to allow this session." >&2
     exit 2
     ;;
 esac

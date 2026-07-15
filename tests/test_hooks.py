@@ -33,3 +33,57 @@ def test_user_prompt_submit_reminder():
     )
     assert proc.returncode == 0
     assert "FRUGAL ROUTING ACTIVE" in proc.stdout
+
+
+GUARD = ROOT / "hooks" / "guard_expensive.sh"
+
+
+def run_guard(payload, env_extra=None):
+    env = {"PATH": "/usr/bin:/bin"}
+    if env_extra:
+        env.update(env_extra)
+    body = payload if isinstance(payload, str) else json.dumps(payload)
+    return subprocess.run(
+        ["bash", str(GUARD)],
+        input=body, capture_output=True, text=True, env=env,
+    )
+
+
+def test_guard_wired_on_agent():
+    matchers = [b.get("matcher") for b in HOOKS["PreToolUse"]]
+    assert "Agent" in matchers
+    cmds = [h["command"] for b in HOOKS["PreToolUse"] for h in b["hooks"]]
+    assert any("guard_expensive.sh" in c for c in cmds)
+
+
+def test_guard_blocks_expensive_agents():
+    for atype in ("Explore", "general-purpose", "claude", "Plan", "sage", "frugal:sage"):
+        proc = run_guard({"tool_name": "Agent", "tool_input": {"subagent_type": atype}})
+        assert proc.returncode == 2, f"{atype} should be blocked"
+        assert "frugal:scout" in proc.stderr
+
+
+def test_guard_blocks_bare_agent_call():
+    # no subagent_type -> defaults to general-purpose -> blocked
+    proc = run_guard({"tool_name": "Agent", "tool_input": {}})
+    assert proc.returncode == 2
+    assert "general-purpose" in proc.stderr
+
+
+def test_guard_allows_cheap_and_specialised_agents():
+    # exact "claude" is blocked, but "claude-code-guide" (substring) must not be
+    for atype in ("frugal:scout", "frugal:extractor", "frugal:mechanic",
+                  "frugal:builder", "fast-explorer", "claude-code-guide"):
+        proc = run_guard({"tool_name": "Agent", "tool_input": {"subagent_type": atype}})
+        assert proc.returncode == 0, f"{atype} should be allowed"
+
+
+def test_guard_escape_hatch():
+    proc = run_guard({"tool_name": "Agent", "tool_input": {"subagent_type": "Explore"}},
+                     env_extra={"FRUGAL_ALLOW_EXPENSIVE": "1"})
+    assert proc.returncode == 0
+
+
+def test_guard_fails_open_on_bad_json():
+    proc = run_guard("not json {{{")
+    assert proc.returncode == 0

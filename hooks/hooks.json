@@ -29,6 +29,15 @@
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_inline.py\""
           }
         ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_expensive.sh\""
+          }
+        ]
       }
     ],
     "SubagentStop": [
