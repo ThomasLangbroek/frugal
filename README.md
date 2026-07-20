@@ -134,6 +134,10 @@ Be precise about the cost claim when you pitch it internally: in our measurement
 
 Adding a model tier is one agent file plus one table row; see [docs/extending.md](docs/extending.md).
 
+## Releases
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please). Merges to `main` accumulate into a release PR that bumps `.claude-plugin/plugin.json` and regenerates the changelog from conventional-commit history; merging that PR tags the version and publishes a GitHub Release. Contributors never touch the version by hand, and PR titles must be valid conventional commits (a `pr-title` CI check enforces it). See [CONTRIBUTING.md](CONTRIBUTING.md).
+
 ## Licence
 
 MIT.
