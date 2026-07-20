@@ -16,16 +16,25 @@ No other dependencies. Everything is stdlib Python and bash.
 1. Branch from `main`.
 2. Make the change. Every non-trivial behaviour needs a test in `tests/`;
    hooks must stay fail-open (a broken hook must never break a session).
-3. If you touch anything under `hooks/`, `agents/`, `skills/` or `scripts/`,
-   bump the version in `.claude-plugin/plugin.json` (CI enforces this).
-4. `pytest tests/ -q` must pass.
-5. Open a PR against `main`. Direct pushes to `main` are blocked; CI must be
-   green before merge.
+3. `pytest tests/ -q` must pass.
+4. Open a PR against `main`. Direct pushes to `main` are blocked, and every PR
+   needs the code owner's approval before merge. Do not bump the version by
+   hand: release-please derives it from commit types and opens a release PR.
 
-## Commit style
+## Commit style and releases
 
-Conventional commits: `feat:`, `fix:`, `docs:`, `chore:`, `test:`.
+Conventional commits, because release-please reads them to version the plugin:
+
+- `fix:` -> patch, `feat:` -> minor, `feat!:` or a `BREAKING CHANGE:` footer -> major.
+- `docs:`, `chore:`, `ci:`, `test:`, `refactor:` do not trigger a release.
+
 Subject ≤ 72 chars; body explains why, not what.
+
+PRs are squash-merged and the **PR title** becomes the commit on `main`, so the
+PR title must be a valid conventional commit. A CI check (`pr-title`) enforces
+this. On merge, release-please opens or updates a release PR; merging that PR
+bumps `.claude-plugin/plugin.json`, updates the changelog, tags the version and
+cuts a GitHub Release.
 
 ## What fits this plugin
 
