@@ -5,7 +5,9 @@ The routing policy allows one-shot deterministic commands in the main loop
 but wants iterative discovery delegated to cheap workers. This guard makes
 that deterministic: after FRUGAL_INLINE_BUDGET search-type tool calls within
 one user prompt, further ones are denied with a pointer to scout/extractor.
-An Agent call resets the budget. Subagent tool calls are never counted or
+A foreground (blocking) Agent call resets the budget; a background one does
+not, so inline work racing a background worker still hits the wall. Subagent
+tool calls are never counted or
 blocked. Fail-open by design: any parse problem allows.
 """
 import json
@@ -41,10 +43,16 @@ def main():
         return 0  # subagent doing its job; never throttle workers
     tool = payload.get("tool_name", "")
     if tool == "Agent":
-        try:
-            os.remove(counter_path(payload))
-        except OSError:
-            pass
+        # A foreground (blocking) dispatch cannot be raced: the loop waits for
+        # the result, so resetting the inline budget is safe. A background
+        # dispatch returns control immediately and is exactly when inline
+        # racing happens, so keep the counter climbing toward the wall.
+        backgrounded = (payload.get("tool_input") or {}).get("run_in_background", True)
+        if not backgrounded:
+            try:
+                os.remove(counter_path(payload))
+            except OSError:
+                pass
         return 0
     if os.environ.get("FRUGAL_ALLOW_INLINE") == "1":
         return 0

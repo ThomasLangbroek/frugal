@@ -30,12 +30,30 @@ def test_blocks_after_budget():
     assert "frugal:scout" in proc.stderr
 
 
-def test_agent_call_resets_budget():
+def test_foreground_agent_resets_budget():
     session = uuid.uuid4().hex
     for _ in range(6):
         run_guard(payload("Grep", session))
-    assert run_guard(payload("Agent", session)).returncode == 0
+    assert run_guard(payload("Agent", session, run_in_background=False)).returncode == 0
     assert run_guard(payload("Grep", session)).returncode == 0
+
+
+def test_background_agent_does_not_reset_budget():
+    session = uuid.uuid4().hex
+    for _ in range(6):
+        run_guard(payload("Grep", session))
+    # background dispatch returns control instantly; inline racing must still hit the wall
+    assert run_guard(payload("Agent", session, run_in_background=True)).returncode == 0
+    assert run_guard(payload("Grep", session)).returncode == 2
+
+
+def test_agent_defaults_to_background_no_reset():
+    session = uuid.uuid4().hex
+    for _ in range(6):
+        run_guard(payload("Grep", session))
+    # no run_in_background key -> defaults to background -> no reset
+    assert run_guard(payload("Agent", session)).returncode == 0
+    assert run_guard(payload("Grep", session)).returncode == 2
 
 
 def test_new_prompt_resets_budget():
