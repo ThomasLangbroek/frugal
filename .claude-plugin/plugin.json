@@ -1,10 +1,18 @@
 {
   "name": "frugal",
   "displayName": "Frugal",
-  "version": "0.11.1",
+  "version": "0.12.0",
   "description": "Cost-optimised agent router: sends every sub-task to the cheapest execution strategy that can succeed, escalates only on verified failure.",
-  "author": { "name": "Thomas Langbroek" },
+  "author": {
+    "name": "Thomas Langbroek"
+  },
   "repository": "https://github.com/ThomasLangbroek/frugal",
   "license": "MIT",
-  "keywords": ["routing", "cost", "agents", "orchestration", "claude-code"]
+  "keywords": [
+    "routing",
+    "cost",
+    "agents",
+    "orchestration",
+    "claude-code"
+  ]
 }

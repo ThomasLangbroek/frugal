@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/ThomasLangbroek/frugal/compare/v0.11.1...v0.12.0) (2026-07-22)
+
+
+### Features
+
+* gate sensitive data before tier selection ([#18](https://github.com/ThomasLangbroek/frugal/issues/18)) ([1982c6c](https://github.com/ThomasLangbroek/frugal/commit/1982c6ca09c12184a42009b583f9a94c5e45c297)), closes [#17](https://github.com/ThomasLangbroek/frugal/issues/17)
+
 ## 0.11.1 - 20-07-2026
 - guard_inline resets the inline-search budget only on foreground (blocking) agent dispatches; background dispatches (the default) keep the counter climbing, so inline discovery racing a background worker is still throttled instead of getting a fresh budget.
 
