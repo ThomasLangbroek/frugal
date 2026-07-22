@@ -115,6 +115,9 @@
   .bar { flex: 1; height: 4px; background: var(--raise); border-radius: 2px; overflow: hidden; }
   .bar > i { display: block; height: 100%; width: var(--w); background: var(--tc, var(--accent)); }
   .tier .cost { font-family: var(--mono); font-size: 11px; color: var(--faint); width: 34px; text-align: right; }
+  .tier.hd { padding: 12px 0; }
+  .tier.hd span { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase; color: var(--faint); }
+  @media (max-width: 720px) { .tier.hd { display: none; } }
   .verif { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-top: 20px; }
   .verif b { color: var(--accent-ink); font-weight: 600; }
 
@@ -216,6 +219,11 @@
       <p>One decision table the main model reads on every sub-task. A deterministic shell command beats any model; a model is called only when reasoning is actually required.</p>
     </div>
     <div class="tiers">
+      <div class="tier hd">
+        <span>tier</span>
+        <span>what it handles</span>
+        <span>cost per task</span>
+      </div>
       <div class="tier" style="--tc:var(--good)">
         <div class="n">shell command <span class="m">no model</span></div>
         <div class="d">A grep, jq, git or test command answers it. No model call at all.</div>
