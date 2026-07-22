@@ -67,6 +67,18 @@ def net_cost(record):
     return cost_usd(record) + handoff_cost(record)
 
 
+def money(x):
+    """Signed dollar amount with the minus outside the sign, e.g. -$0.06."""
+    return f"-${abs(x):.2f}" if x < 0 else f"${x:.2f}"
+
+
+def saved_cell(net, base):
+    """Bill-style savings cell: dollar difference and percent of baseline."""
+    saved = base - net
+    pct = (saved / base * 100) if base else 0.0
+    return f"{money(saved)} ({pct:.1f}%)"
+
+
 def load(path):
     records = []
     try:
@@ -105,10 +117,11 @@ def report(records):
         "# Frugal routing report",
         "",
         "| Agent | Runs | Escalations | Input tok | Output tok "
-        "| Net cost | At baseline | Avg s |",
-        "|---|---|---|---|---|---|---|---|",
+        "| Net cost | At baseline | Saved | Avg s |",
+        "|---|---|---|---|---|---|---|---|---|",
     ]
-    total = {"runs": 0, "escalations": 0, "net": 0.0, "baseline": 0.0}
+    total = {"runs": 0, "escalations": 0, "in": 0, "out": 0,
+             "net": 0.0, "baseline": 0.0}
     losing = []
     for name in sorted(groups):
         group = groups[name]
@@ -117,20 +130,25 @@ def report(records):
         lines.append(
             f"| {name} | {group['runs']} | {group['escalations']} "
             f"| {group['in']:,} | {group['out']:,} "
-            f"| ${group['net']:.2f} | ${group['baseline']:.2f} | {avg_s} |"
+            f"| ${group['net']:.2f} | ${group['baseline']:.2f} "
+            f"| {saved_cell(group['net'], group['baseline'])} | {avg_s} |"
         )
         if group["net"] >= group["baseline"]:
             losing.append(name)
         for key in total:
             total[key] += group[key]
-    saved = total["baseline"] - total["net"]
-    pct = (saved / total["baseline"] * 100) if total["baseline"] else 0.0
     rate = total["escalations"] / total["runs"] * 100
+    lines.append(
+        f"| **Total** | **{total['runs']}** | **{total['escalations']}** "
+        f"| **{total['in']:,}** | **{total['out']:,}** "
+        f"| **${total['net']:.2f}** | **${total['baseline']:.2f}** "
+        f"| **{saved_cell(total['net'], total['baseline'])}** | |"
+    )
     lines += [
         "",
-        f"**Net cost (worker + reply re-ingestion):** ${total['net']:.2f} | "
-        f"**baseline (main-loop rates):** ${total['baseline']:.2f} | "
-        f"**saved:** ${saved:.2f} ({pct:.1f}%)",
+        "*Net cost = what you paid (worker spend plus reply re-ingestion). "
+        "At baseline = the same work on the main-loop model. Saved is the "
+        "difference.*",
         f"**Escalation rate:** {total['escalations']}/{total['runs']} runs ({rate:.1f}%)",
     ]
     if losing:
@@ -171,17 +189,23 @@ def session_table(records):
         "| Session | When | Runs | Net cost | Baseline | Saved |",
         "|---|---|---|---|---|---|",
     ]
+    total = {"runs": 0, "net": 0.0, "baseline": 0.0}
     for sid in sorted(groups, key=lambda s: groups[s]["first"] or 0, reverse=True):
         group = groups[sid]
         when = (time.strftime("%d-%m-%Y %H:%M", time.localtime(group["first"]))
                 if group["first"] is not None else "?")
-        saved = group["baseline"] - group["net"]
-        pct = (saved / group["baseline"] * 100) if group["baseline"] else 0.0
         lines.append(
             f"| {sid[:8]} | {when} | {group['runs']} "
             f"| ${group['net']:.2f} | ${group['baseline']:.2f} "
-            f"| ${saved:.2f} ({pct:.1f}%) |"
+            f"| {saved_cell(group['net'], group['baseline'])} |"
         )
+        for key in total:
+            total[key] += group[key]
+    lines.append(
+        f"| **Total** | | **{total['runs']}** "
+        f"| **${total['net']:.2f}** | **${total['baseline']:.2f}** "
+        f"| **{saved_cell(total['net'], total['baseline'])}** |"
+    )
     return "\n".join(lines)
 
 
