@@ -8,225 +8,175 @@
 <title>Frugal — a cost-optimised model router for Claude Code</title>
 <style>
   :root {
-    --bg: #f3f1ec;
-    --surface: #fbfaf7;
-    --surface-2: #efece4;
-    --ink: #1c1a17;
-    --muted: #6b675f;
-    --line: #ddd8ce;
-    --accent: #c0741a;
-    --accent-ink: #7a4a10;
-    --accent-soft: #f0d6a6;
-    --slate: #566169;
-    --good: #4f7a3f;
-    --radius: 4px;
-    --maxw: 1080px;
+    --bg: #eceded;
+    --surface: #f6f7f6;
+    --raise: #e3e5e4;
+    --ink: #16181a;
+    --muted: #5d6266;
+    --faint: #8a8f8f;
+    --line: #d3d7d5;
+    --accent: #a9640f;
+    --accent-ink: #7c4a0c;
+    --good: #4a7538;
+    --slate: #515c64;
     --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Code", Menlo, Consolas, monospace;
     --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --maxw: 1000px;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #14130f;
-      --surface: #1b1914;
-      --surface-2: #221f18;
-      --ink: #ebe7dc;
-      --muted: #9a9385;
-      --line: #2f2b22;
-      --accent: #e6a542;
-      --accent-ink: #f2c988;
-      --accent-soft: #6b4f20;
-      --slate: #859399;
-      --good: #8bbf6f;
+      --bg: #131517; --surface: #1a1c1e; --raise: #212426;
+      --ink: #e8eae9; --muted: #969b9a; --faint: #6d7273; --line: #2a2e30;
+      --accent: #dd9f47; --accent-ink: #ecc07e; --good: #83bb6a; --slate: #7e8a92;
     }
   }
   :root[data-theme="light"] {
-    --bg: #f3f1ec; --surface: #fbfaf7; --surface-2: #efece4;
-    --ink: #1c1a17; --muted: #6b675f; --line: #ddd8ce;
-    --accent: #c0741a; --accent-ink: #7a4a10; --accent-soft: #f0d6a6;
-    --slate: #566169; --good: #4f7a3f;
+    --bg: #eceded; --surface: #f6f7f6; --raise: #e3e5e4;
+    --ink: #16181a; --muted: #5d6266; --faint: #8a8f8f; --line: #d3d7d5;
+    --accent: #a9640f; --accent-ink: #7c4a0c; --good: #4a7538; --slate: #515c64;
   }
   :root[data-theme="dark"] {
-    --bg: #14130f; --surface: #1b1914; --surface-2: #221f18;
-    --ink: #ebe7dc; --muted: #9a9385; --line: #2f2b22;
-    --accent: #e6a542; --accent-ink: #f2c988; --accent-soft: #6b4f20;
-    --slate: #859399; --good: #8bbf6f;
+    --bg: #131517; --surface: #1a1c1e; --raise: #212426;
+    --ink: #e8eae9; --muted: #969b9a; --faint: #6d7273; --line: #2a2e30;
+    --accent: #dd9f47; --accent-ink: #ecc07e; --good: #83bb6a; --slate: #7e8a92;
   }
 
   * { box-sizing: border-box; }
-  html { scroll-behavior: smooth; }
-  @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--sans);
-    line-height: 1.6;
+    margin: 0; background: var(--bg); color: var(--ink);
+    font-family: var(--sans); font-size: 16px; line-height: 1.6;
     -webkit-font-smoothing: antialiased;
-    font-size: 17px;
   }
-  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 24px; }
-  section { border-top: 1px solid var(--line); }
-  a { color: var(--accent-ink); text-underline-offset: 3px; text-decoration-thickness: 1px; }
-  a:focus-visible, button:focus-visible {
-    outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 2px;
-  }
-  .mono { font-family: var(--mono); }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+  a { color: var(--ink); text-decoration-color: var(--line); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  h1, h2, h3 { font-family: var(--mono); font-weight: 600; letter-spacing: -0.01em; text-wrap: balance; }
   .eyebrow {
-    font-family: var(--mono);
-    font-size: 12px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
+    font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--faint); margin: 0 0 14px;
   }
-  h1, h2, h3 { font-family: var(--mono); font-weight: 600; text-wrap: balance; letter-spacing: -0.01em; }
+  .rule { border: 0; border-top: 1px solid var(--line); margin: 0; }
 
-  /* ---- top bar ---- */
-  header.bar {
-    position: sticky; top: 0; z-index: 20;
-    background: color-mix(in srgb, var(--bg) 88%, transparent);
-    backdrop-filter: blur(8px);
-    border-bottom: 1px solid var(--line);
-  }
-  .bar .wrap { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-  .brand { font-family: var(--mono); font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 9px; }
-  .brand .dot { color: var(--accent); }
-  .bar nav { display: flex; gap: 22px; align-items: center; }
-  .bar nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-family: var(--mono); }
-  .bar nav a:hover { color: var(--ink); }
-  .ghost {
-    border: 1px solid var(--line); background: var(--surface);
-    color: var(--ink); padding: 7px 14px; border-radius: var(--radius);
-    font-family: var(--mono); font-size: 13px; text-decoration: none;
-  }
-  .ghost:hover { border-color: var(--accent); }
-  @media (max-width: 680px) { .bar nav .hidesm { display: none; } }
+  /* top bar */
+  header.top { border-bottom: 1px solid var(--line); }
+  header.top .wrap { display: flex; align-items: baseline; justify-content: space-between; height: 60px; }
+  .word { font-family: var(--mono); font-weight: 600; font-size: 16px; letter-spacing: 0.02em; }
+  .word b { color: var(--accent); font-weight: 600; }
+  header.top nav { display: flex; gap: 26px; font-family: var(--mono); font-size: 13.5px; }
+  header.top nav a { color: var(--muted); text-decoration: none; }
+  header.top nav a:hover { color: var(--ink); }
+  @media (max-width: 640px) { header.top nav a.h { display: none; } }
 
-  /* ---- hero ---- */
-  .hero { padding: 76px 0 64px; }
-  .hero .wrap { display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 48px; align-items: center; }
-  @media (max-width: 860px) { .hero .wrap { grid-template-columns: 1fr; gap: 36px; } .hero { padding: 52px 0 44px; } }
-  .hero h1 { font-size: clamp(34px, 5.4vw, 58px); line-height: 1.04; margin: 18px 0 0; }
-  .hero h1 .amber { color: var(--accent); }
-  .lede { font-size: 19px; color: var(--muted); margin: 22px 0 0; max-width: 46ch; }
-  .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
+  /* hero */
+  .hero .wrap { display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 56px; align-items: start; padding: 84px 28px 72px; }
+  @media (max-width: 840px) { .hero .wrap { grid-template-columns: 1fr; gap: 40px; padding: 52px 28px 48px; } }
+  h1 { font-size: clamp(32px, 5vw, 52px); line-height: 1.06; margin: 0; }
+  h1 .a { color: var(--accent); }
+  .lede { color: var(--muted); font-size: 18px; margin: 24px 0 0; max-width: 42ch; }
+  .actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 32px; }
   .btn {
-    font-family: var(--mono); font-size: 14px; text-decoration: none;
-    padding: 11px 18px; border-radius: var(--radius); display: inline-flex; gap: 8px; align-items: center;
+    font-family: var(--mono); font-size: 13.5px; text-decoration: none;
+    padding: 10px 17px; border-radius: 3px; border: 1px solid transparent;
   }
-  .btn.primary { background: var(--accent); color: #1a1205; font-weight: 600; border: 1px solid var(--accent); }
-  .btn.primary:hover { filter: brightness(1.05); }
-  .btn.line { background: transparent; color: var(--ink); border: 1px solid var(--line); }
-  .btn.line:hover { border-color: var(--accent); }
+  .btn.solid { background: var(--ink); color: var(--bg); }
+  .btn.solid:hover { opacity: 0.88; }
+  .btn.wire { border-color: var(--line); color: var(--ink); }
+  .btn.wire:hover { border-color: var(--accent); }
 
-  /* receipt card */
-  .receipt {
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    padding: 22px 22px 18px;
-    box-shadow: 0 1px 0 var(--line), 0 18px 40px -28px rgba(0,0,0,0.5);
-    font-family: var(--mono);
-  }
-  .receipt .rhead { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase; }
-  .receipt hr { border: none; border-top: 1px dashed var(--line); margin: 14px 0; }
-  .rrow { display: flex; justify-content: space-between; font-size: 13.5px; padding: 4px 0; font-variant-numeric: tabular-nums; }
-  .rrow .lbl { color: var(--muted); }
-  .rrow .val { color: var(--ink); }
-  .rrow.strike .val { color: var(--slate); text-decoration: line-through; }
-  .rrow.win .val { color: var(--accent-ink); font-weight: 600; }
-  .rtotal { display: flex; justify-content: space-between; font-size: 15px; margin-top: 10px; padding-top: 12px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-  .rtotal .val { color: var(--accent); font-weight: 700; }
-  .rnote { font-size: 11px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  /* ledger card */
+  .ledger { border: 1px solid var(--line); background: var(--surface); border-radius: 3px; padding: 20px 20px 16px; font-family: var(--mono); }
+  .ledger .h { display: flex; justify-content: space-between; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); margin-bottom: 12px; }
+  .ledger .dash { border: 0; border-top: 1px dashed var(--line); margin: 12px 0; }
+  .lr { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; font-variant-numeric: tabular-nums; }
+  .lr .k { color: var(--muted); }
+  .lr.old .v { color: var(--slate); text-decoration: line-through; }
+  .lr.new .v { color: var(--accent-ink); }
+  .lt { display: flex; justify-content: space-between; align-items: baseline; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+  .lt .v { color: var(--accent); font-size: 17px; font-weight: 700; }
+  .note { font-family: var(--sans); font-size: 11.5px; color: var(--faint); line-height: 1.5; margin: 12px 0 0; }
 
-  /* ---- generic section ---- */
-  .sec { padding: 62px 0; }
-  .sec-h { max-width: 60ch; margin-bottom: 34px; }
-  .sec-h h2 { font-size: clamp(22px, 3vw, 30px); margin: 10px 0 0; }
-  .sec-h p { color: var(--muted); margin: 12px 0 0; }
+  /* sections */
+  section { padding: 66px 0; }
+  .head { max-width: 62ch; margin-bottom: 34px; }
+  .head h2 { font-size: clamp(21px, 2.6vw, 27px); margin: 0; }
+  .head p { color: var(--muted); margin: 12px 0 0; }
 
-  /* ---- ladder ---- */
-  .ladder { display: flex; flex-direction: column; gap: 10px; }
-  .tier {
-    display: grid; grid-template-columns: 34px 1.1fr 1fr auto; align-items: center; gap: 18px;
-    background: var(--surface); border: 1px solid var(--line);
-    border-left: 3px solid var(--tc, var(--line));
-    border-radius: var(--radius); padding: 15px 18px;
-  }
-  @media (max-width: 720px) {
-    .tier { grid-template-columns: 28px 1fr; grid-auto-rows: min-content; gap: 4px 14px; }
-    .tier .role, .tier .costcell { grid-column: 2; }
-  }
-  .tier .idx { font-family: var(--mono); color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
-  .tier .name { font-family: var(--mono); font-weight: 600; font-size: 15px; }
-  .tier .model { font-family: var(--mono); font-size: 12px; color: var(--tc, var(--muted)); letter-spacing: 0.04em; }
-  .tier .role { color: var(--muted); font-size: 14.5px; }
-  .costcell { min-width: 132px; }
-  .costbar { height: 7px; border-radius: 20px; background: var(--surface-2); overflow: hidden; }
-  .costbar > span { display: block; height: 100%; width: var(--w, 10%); background: var(--tc, var(--accent)); border-radius: 20px; transform-origin: left; }
-  .cap { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px; letter-spacing: 0.03em; }
-  .ladder-foot { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-top: 16px; display: flex; align-items: center; gap: 10px; }
-  .ladder-foot b { color: var(--accent-ink); font-weight: 600; }
+  /* ladder as a ledger table */
+  .tiers { display: flex; flex-direction: column; }
+  .tier { display: grid; grid-template-columns: 190px 1fr 150px; gap: 24px; align-items: center; padding: 16px 0; border-top: 1px solid var(--line); }
+  .tier:last-child { border-bottom: 1px solid var(--line); }
+  @media (max-width: 720px) { .tier { grid-template-columns: 1fr; gap: 6px; } .tier .bar-c { max-width: 200px; } }
+  .tier .n { font-family: var(--mono); font-weight: 600; font-size: 14.5px; display: flex; align-items: baseline; gap: 10px; }
+  .tier .m { font-family: var(--mono); font-size: 11.5px; letter-spacing: 0.03em; color: var(--tc, var(--faint)); }
+  .tier .d { color: var(--muted); font-size: 14px; }
+  .tier .bar-c { display: flex; align-items: center; gap: 10px; }
+  .bar { flex: 1; height: 4px; background: var(--raise); border-radius: 2px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: var(--w); background: var(--tc, var(--accent)); }
+  .tier .cost { font-family: var(--mono); font-size: 11px; color: var(--faint); width: 34px; text-align: right; }
+  .verif { font-family: var(--mono); font-size: 13px; color: var(--muted); margin-top: 20px; }
+  .verif b { color: var(--accent-ink); font-weight: 600; }
 
-  /* ---- makeup cards ---- */
-  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  @media (max-width: 760px) { .grid3 { grid-template-columns: 1fr; } }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
-  .card .big { font-family: var(--mono); font-size: 40px; font-weight: 700; color: var(--accent); line-height: 1; }
-  .card h3 { font-size: 16px; margin: 12px 0 6px; }
-  .card p { color: var(--muted); font-size: 14.5px; margin: 0; }
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }
-  .chip { font-family: var(--mono); font-size: 12.5px; color: var(--muted); border: 1px solid var(--line); border-radius: 20px; padding: 5px 13px; background: var(--surface); }
-  .chip b { color: var(--ink); font-weight: 600; }
+  /* makeup: one line, not stat cards */
+  .makeup { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--line); border-radius: 3px; }
+  @media (max-width: 640px) { .makeup { grid-template-columns: 1fr; } .makeup .cell + .cell { border-left: 0; border-top: 1px solid var(--line); } }
+  .cell { padding: 22px; }
+  .cell + .cell { border-left: 1px solid var(--line); }
+  .cell .q { font-family: var(--mono); font-size: 14px; color: var(--accent); }
+  .cell h3 { font-size: 15px; margin: 8px 0 5px; font-weight: 600; }
+  .cell p { color: var(--muted); font-size: 13.5px; margin: 0; }
+  .spec { font-family: var(--mono); font-size: 12.5px; color: var(--faint); margin-top: 18px; }
+  .spec b { color: var(--muted); font-weight: 600; }
 
-  /* ---- two-up ---- */
-  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
-  .panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; }
-  .panel .tag { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); }
-  .panel h3 { font-size: 17px; margin: 10px 0 8px; }
-  .panel p { color: var(--muted); font-size: 14.5px; margin: 0 0 10px; }
-  .failopen { font-family: var(--mono); font-size: 12px; color: var(--good); display: inline-flex; align-items: center; gap: 7px; }
-  .failopen::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+  /* two panels */
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1px solid var(--line); border-radius: 3px; }
+  @media (max-width: 720px) { .two { grid-template-columns: 1fr; } .two .p + .p { border-left: 0; border-top: 1px solid var(--line); } }
+  .p { padding: 24px; }
+  .p + .p { border-left: 1px solid var(--line); }
+  .p .tag { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent-ink); }
+  .p h3 { font-size: 15.5px; margin: 9px 0 7px; }
+  .p p { color: var(--muted); font-size: 14px; margin: 0 0 12px; }
+  .fo { font-family: var(--mono); font-size: 11.5px; color: var(--good); }
 
-  /* ---- install ---- */
-  .install .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center; }
-  @media (max-width: 800px) { .install .wrap { grid-template-columns: 1fr; gap: 26px; } }
-  pre.term {
-    background: var(--surface); border: 1px solid var(--line); border-radius: 6px;
-    padding: 0; margin: 0; overflow-x: auto; font-family: var(--mono); font-size: 13.5px;
-  }
-  pre.term .top { display: flex; gap: 6px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
-  pre.term .top i { width: 10px; height: 10px; border-radius: 50%; background: var(--line); display: inline-block; }
-  pre.term code { display: block; padding: 16px 16px 18px; line-height: 1.85; color: var(--ink); white-space: pre; }
-  pre.term .pr { color: var(--accent); }
-  pre.term .cm { color: var(--muted); }
+  /* code */
+  .code { border: 1px solid var(--line); background: var(--surface); border-radius: 3px; overflow-x: auto; }
+  .code .cap { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); padding: 11px 16px; border-bottom: 1px solid var(--line); }
+  .code pre { margin: 0; padding: 16px; font-family: var(--mono); font-size: 13px; line-height: 1.85; color: var(--ink); white-space: pre; }
+  .code .pr { color: var(--accent); }
+  .code .cm { color: var(--faint); }
+  .measure { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; }
+  @media (max-width: 760px) { .measure { grid-template-columns: 1fr; } }
+  .measure p { color: var(--muted); font-size: 14.5px; margin: 0 0 12px; }
+  .measure .lead { color: var(--ink); }
 
-  /* ---- tradeoffs ---- */
-  .honest { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
-  @media (max-width: 760px) { .honest { grid-template-columns: 1fr; } }
-  .honest .item { border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; background: var(--surface-2); }
-  .honest .item h4 { font-family: var(--mono); font-size: 14px; margin: 0 0 6px; }
-  .honest .item p { color: var(--muted); font-size: 13.5px; margin: 0; }
+  /* install */
+  .install .wrap { display: grid; grid-template-columns: 1fr 1fr; gap: 44px; align-items: center; }
+  @media (max-width: 780px) { .install .wrap { grid-template-columns: 1fr; gap: 26px; } }
+  .install h2 { font-size: clamp(21px, 2.6vw, 27px); margin: 0 0 12px; }
+  .install .lede { margin: 0 0 22px; }
 
-  footer { border-top: 1px solid var(--line); padding: 34px 0 54px; }
-  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 14px; align-items: center; }
-  footer .mono { color: var(--muted); font-size: 13px; }
+  /* tradeoffs */
+  .honest { display: grid; grid-template-columns: repeat(3, 1fr); gap: 26px; }
+  @media (max-width: 720px) { .honest { grid-template-columns: 1fr; gap: 18px; } }
+  .honest h4 { font-family: var(--mono); font-size: 13.5px; margin: 0 0 6px; font-weight: 600; }
+  .honest p { color: var(--muted); font-size: 13.5px; margin: 0; }
 
-  .reveal { opacity: 0; transform: translateY(10px); transition: opacity .6s ease, transform .6s ease; }
-  .reveal.in { opacity: 1; transform: none; }
-  @media (prefers-reduced-motion: reduce) { .reveal { opacity: 1; transform: none; transition: none; } .costbar > span { transition: none !important; } }
+  footer { border-top: 1px solid var(--line); padding: 30px 0 50px; }
+  footer .wrap { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 12px; font-family: var(--mono); font-size: 12.5px; color: var(--faint); }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--ink); }
 </style>
 </head>
 <body>
 
-<header class="bar">
+<header class="top">
   <div class="wrap">
-    <div class="brand"><span class="dot">◈</span> frugal</div>
+    <span class="word"><b>¢</b> frugal</span>
     <nav>
-      <a href="#ladder" class="hidesm">the ladder</a>
-      <a href="#make" class="hidesm">what it is</a>
-      <a href="#measure" class="hidesm">measurement</a>
-      <a class="ghost" href="https://github.com/ThomasLangbroek/frugal">GitHub</a>
+      <a class="h" href="#ladder">ladder</a>
+      <a class="h" href="#make">what it is</a>
+      <a class="h" href="#measure">measurement</a>
+      <a href="https://github.com/ThomasLangbroek/frugal">GitHub</a>
     </nav>
   </div>
 </header>
@@ -234,205 +184,184 @@
 <section class="hero">
   <div class="wrap">
     <div>
-      <div class="eyebrow">Claude Code plugin · MIT · no runtime</div>
-      <h1>Stop paying <span class="amber">reasoning rates</span> for grep.</h1>
+      <p class="eyebrow">Claude Code plugin · MIT · no runtime</p>
+      <h1>Stop paying <span class="a">reasoning rates</span> for grep.</h1>
       <p class="lede">Frugal turns Claude Code's main model into a router. Every sub-task goes to the cheapest tier that can do it, and it escalates only when a real check fails.</p>
-      <div class="cta-row">
-        <a class="btn primary" href="https://github.com/ThomasLangbroek/frugal">◈ View on GitHub</a>
-        <a class="btn line" href="#install">Install (two commands)</a>
+      <div class="actions">
+        <a class="btn solid" href="https://github.com/ThomasLangbroek/frugal">View on GitHub</a>
+        <a class="btn wire" href="#install">Install</a>
       </div>
     </div>
-    <aside class="receipt" aria-label="Illustrative session cost breakdown">
-      <div class="rhead"><span>session ledger</span><span>frugal</span></div>
-      <hr>
-      <div class="rrow"><span class="lbl">locate files</span><span class="val">scout · haiku</span></div>
-      <div class="rrow"><span class="lbl">read + summarise</span><span class="val">extractor · haiku</span></div>
-      <div class="rrow"><span class="lbl">mechanical edits</span><span class="val">mechanic · sonnet</span></div>
-      <div class="rrow"><span class="lbl">design + review</span><span class="val">main loop</span></div>
-      <hr>
-      <div class="rrow strike"><span class="lbl">all on top tier</span><span class="val">$1.00</span></div>
-      <div class="rrow win"><span class="lbl">delegated, routed</span><span class="val">$0.15</span></div>
-      <div class="rtotal"><span>saved on delegated work</span><span class="val">~85%</span></div>
-      <p class="rnote">Illustrative. Applies to the delegated portion of a session, not the whole bill. Every install measures its own numbers locally.</p>
-    </aside>
+    <div class="ledger" aria-label="Illustrative session cost breakdown">
+      <div class="h"><span>session ledger</span><span>frugal</span></div>
+      <div class="lr"><span class="k">locate files</span><span class="v">scout · haiku</span></div>
+      <div class="lr"><span class="k">read + summarise</span><span class="v">extractor · haiku</span></div>
+      <div class="lr"><span class="k">mechanical edits</span><span class="v">mechanic · sonnet</span></div>
+      <div class="lr"><span class="k">design + review</span><span class="v">main loop</span></div>
+      <hr class="dash">
+      <div class="lr old"><span class="k">all on top tier</span><span class="v">$1.00</span></div>
+      <div class="lr new"><span class="k">delegated, routed</span><span class="v">$0.15</span></div>
+      <div class="lt"><span class="k">saved on delegated work</span><span class="v">~85%</span></div>
+      <p class="note">Illustrative. Applies to the delegated portion of a session, not the whole bill. Every install measures its own numbers locally.</p>
+    </div>
   </div>
 </section>
 
-<section class="sec" id="ladder">
+<section id="ladder">
   <div class="wrap">
-    <div class="sec-h reveal">
-      <div class="eyebrow">the routing ladder</div>
+    <div class="head">
+      <p class="eyebrow">the routing ladder</p>
       <h2>Cheapest capable tier first. Expensive only when earned.</h2>
       <p>One decision table the main model reads on every sub-task. A deterministic shell command beats any model; a model is called only when reasoning is actually required.</p>
     </div>
-    <div class="ladder">
-      <div class="tier reveal" style="--tc:var(--good)">
-        <span class="idx">00</span>
-        <div><div class="name">shell command</div><div class="model">grep · jq · git · tests</div></div>
-        <div class="role">A deterministic command answers it. No model call at all.</div>
-        <div class="costcell"><div class="costbar"><span style="--w:6%"></span></div><div class="cap">near zero</div></div>
+    <div class="tiers">
+      <div class="tier" style="--tc:var(--good)">
+        <div class="n">shell command <span class="m">no model</span></div>
+        <div class="d">A grep, jq, git or test command answers it. No model call at all.</div>
+        <div class="bar-c"><span class="bar"><i style="--w:6%"></i></span><span class="cost">~$0</span></div>
       </div>
-      <div class="tier reveal" style="--tc:var(--accent)">
-        <span class="idx">01</span>
-        <div><div class="name">scout · extractor</div><div class="model">haiku</div></div>
-        <div class="role">Locate, map, find usages. Pull fields, classify, summarise one source.</div>
-        <div class="costcell"><div class="costbar"><span style="--w:16%"></span></div><div class="cap">commodity</div></div>
+      <div class="tier" style="--tc:var(--accent)">
+        <div class="n">scout · extractor <span class="m">haiku</span></div>
+        <div class="d">Locate, map, find usages. Pull fields, classify, summarise one source.</div>
+        <div class="bar-c"><span class="bar"><i style="--w:16%"></i></span><span class="cost">low</span></div>
       </div>
-      <div class="tier reveal" style="--tc:var(--accent)">
-        <span class="idx">02</span>
-        <div><div class="name">mechanic · builder</div><div class="model">sonnet</div></div>
-        <div class="role">Mechanical edits from a spec. Implement one scoped task from a plan.</div>
-        <div class="costcell"><div class="costbar"><span style="--w:34%"></span></div><div class="cap">mid tier</div></div>
+      <div class="tier" style="--tc:var(--accent)">
+        <div class="n">mechanic · builder <span class="m">sonnet</span></div>
+        <div class="d">Mechanical edits from a spec. Implement one scoped task from a plan.</div>
+        <div class="bar-c"><span class="bar"><i style="--w:34%"></i></span><span class="cost">mid</span></div>
       </div>
-      <div class="tier reveal" style="--tc:var(--slate)">
-        <span class="idx">03</span>
-        <div><div class="name">main loop</div><div class="model">your session model</div></div>
-        <div class="role">Design, debugging, reviews, ambiguity, anything risky. Stays expensive on purpose.</div>
-        <div class="costcell"><div class="costbar"><span style="--w:72%"></span></div><div class="cap">reasoning</div></div>
+      <div class="tier" style="--tc:var(--slate)">
+        <div class="n">main loop <span class="m">session model</span></div>
+        <div class="d">Design, debugging, reviews, ambiguity, anything risky. Expensive on purpose.</div>
+        <div class="bar-c"><span class="bar"><i style="--w:72%"></i></span><span class="cost">high</span></div>
       </div>
-      <div class="tier reveal" style="--tc:var(--slate)">
-        <span class="idx">04</span>
-        <div><div class="name">sage</div><div class="model">fable · ceiling</div></div>
-        <div class="role">Reached only via high-risk rows or after escalation exhausts. One attempt, final.</div>
-        <div class="costcell"><div class="costbar"><span style="--w:100%"></span></div><div class="cap">escalation ceiling</div></div>
+      <div class="tier" style="--tc:var(--slate)">
+        <div class="n">sage <span class="m">fable</span></div>
+        <div class="d">Reached only via high-risk rows or after escalation exhausts. One attempt, final.</div>
+        <div class="bar-c"><span class="bar"><i style="--w:100%"></i></span><span class="cost">max</span></div>
       </div>
     </div>
-    <div class="ladder-foot reveal">↳ <b>Verification first:</b> a worker climbs a tier only when a real check fails, never on a cheap model's self-reported doubt.</div>
+    <p class="verif"><b>Verification first.</b> A worker climbs a tier only when a real check fails, never on a cheap model's self-reported doubt.</p>
   </div>
 </section>
 
-<section class="sec" id="make">
+<section id="make">
   <div class="wrap">
-    <div class="sec-h reveal">
-      <div class="eyebrow">what it actually is</div>
+    <div class="head">
+      <p class="eyebrow">what it actually is</p>
       <h2>Not a framework. A plugin.</h2>
       <p>The main model already reads every request, so it routes at zero marginal cost. Everything else is small.</p>
     </div>
-    <div class="grid3">
-      <div class="card reveal"><div class="big">1</div><h3>routing skill</h3><p>One decision table plus the escalation protocol. This is the whole policy.</p></div>
-      <div class="card reveal"><div class="big">5</div><h3>agent definitions</h3><p>scout, extractor, mechanic, builder, sage. Each a tier, each a plain markdown file.</p></div>
-      <div class="card reveal"><div class="big">2</div><h3>fail-open hooks</h3><p>What turns advice into enforcement. A broken hook never breaks your session.</p></div>
+    <div class="makeup">
+      <div class="cell"><div class="q">one</div><h3>routing skill</h3><p>A decision table plus the escalation protocol. The whole policy.</p></div>
+      <div class="cell"><div class="q">five</div><h3>agent definitions</h3><p>scout, extractor, mechanic, builder, sage. Each a tier, each a plain markdown file.</p></div>
+      <div class="cell"><div class="q">two</div><h3>fail-open hooks</h3><p>What turns advice into enforcement. A broken hook never breaks a session.</p></div>
     </div>
-    <div class="chips reveal">
-      <span class="chip"><b>No</b> runtime</span>
-      <span class="chip"><b>No</b> API keys</span>
-      <span class="chip"><b>No</b> network calls</span>
-      <span class="chip"><b>No</b> telemetry</span>
-      <span class="chip">stdlib Python <b>+</b> bash</span>
-    </div>
+    <p class="spec"><b>Depends on:</b> stdlib Python and bash. No runtime, no API keys, no network calls, no telemetry.</p>
   </div>
 </section>
 
-<section class="sec" id="enforce">
+<hr class="rule">
+
+<section id="enforce">
   <div class="wrap">
-    <div class="sec-h reveal">
-      <div class="eyebrow">enforcement, not vibes</div>
+    <div class="head">
+      <p class="eyebrow">enforcement, not vibes</p>
       <h2>A prompt can suggest. A hook can prevent.</h2>
       <p>Routing policy in a skill is advisory. Frugal backs it with two hooks so it does not quietly drift back to expensive habits.</p>
     </div>
     <div class="two">
-      <div class="panel reveal">
+      <div class="p">
         <div class="tag">PreToolUse</div>
         <h3>Inline-exploration budget</h3>
         <p>Counts search-type calls in the main loop. Past the budget it denies the next one and points at the cheap workers. Resets when you delegate.</p>
-        <span class="failopen">fail-open by design</span>
+        <span class="fo">fail-open by design</span>
       </div>
-      <div class="panel reveal">
+      <div class="p">
         <div class="tag">PreToolUse · Agent</div>
         <h3>Expensive-tier guard</h3>
-        <p>Blocks reasoning-tier agent spawns at the source, so locate and extract work cannot be handed to a top-tier model by reflex. One env var overrides it per session.</p>
-        <span class="failopen">fail-open by design</span>
+        <p>Blocks reasoning-tier agent spawns at the source, so locate and extract work is not handed to a top-tier model by reflex. One env var overrides it per session.</p>
+        <span class="fo">fail-open by design</span>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sec" id="measure">
-  <div class="wrap">
-    <div class="sec-h reveal">
-      <div class="eyebrow">it measures itself</div>
-      <h2>Numbers from your machine, not this page.</h2>
-      <p>A hook logs one local line per worker run: agent, model, tokens, escalation flag. Then a report shows cost per tier, escalation rate, and savings versus your session's own main-loop model.</p>
-    </div>
-    <div class="two">
-      <div class="panel reveal">
-        <div class="tag">/frugal:router-stats</div>
-        <h3>Read the report, tune the table</h3>
-        <p>Learning is deliberately offline. High escalations on one agent means its row routes too low. Near-zero savings means work is not being delegated. You edit the decision table, not a model.</p>
-        <p>In the author's own measurements the delegated portion of a session runs about <b style="color:var(--accent-ink)">85% cheaper</b> than the same work on the top tier. Reasoning stays on the expensive model by design.</p>
-      </div>
-      <div class="panel reveal" style="padding:0;overflow:hidden">
-        <pre class="term" style="border:none;border-radius:0"><span class="top"><i></i><i></i><i></i></span><code><span class="cm"># one jsonl line per worker run</span>
-<span class="cm"># ~/.claude/frugal/metrics.jsonl</span>
+<hr class="rule">
 
-tier        runs   share    net
+<section id="measure">
+  <div class="wrap">
+    <div class="head">
+      <p class="eyebrow">it measures itself</p>
+      <h2>Numbers from your machine, not this page.</h2>
+      <p>A hook logs one local line per worker run: agent, model, tokens, escalation flag. A report then shows cost per tier, escalation rate, and savings versus your session's own main-loop model.</p>
+    </div>
+    <div class="measure">
+      <div>
+        <p class="lead">Learning is deliberately offline. High escalations on one agent means its row routes too low. Near-zero savings means work is not being delegated. You edit the decision table, not a model.</p>
+        <p>In the author's own measurements the delegated portion of a session runs about 85% cheaper than the same work on the top tier. Reasoning stays on the expensive model by design.</p>
+      </div>
+      <div class="code">
+        <div class="cap">/frugal:router-stats</div>
+<pre><span class="cm"># one jsonl line per worker run</span>
+tier        runs   model    net
 scout        41    haiku    <span class="pr">$0.02</span>
 extractor    23    haiku    <span class="pr">$0.03</span>
 mechanic     11    sonnet   <span class="pr">$0.19</span>
 main loop     7    fable    $2.90
-──────────────────────────────
-escalation rate .............. 6%
-saved vs top tier ....... <span class="pr">$3.41</span></code></pre>
+escalation rate ............ 6%
+saved vs top tier ..... <span class="pr">$3.41</span></pre>
       </div>
     </div>
   </div>
 </section>
 
-<section class="sec install" id="install">
+<hr class="rule">
+
+<section class="install" id="install">
   <div class="wrap">
-    <div class="reveal">
-      <div class="eyebrow">install</div>
-      <h2 style="font-family:var(--mono);font-size:clamp(22px,3vw,30px);margin:10px 0 14px;">Two commands. Then work normally.</h2>
-      <p style="color:var(--muted);max-width:44ch;margin:0 0 22px;">Rollout is per person and needs no workflow change. Routing is automatic. Uninstall keeps no state beyond the local metrics file.</p>
-      <div class="cta-row">
-        <a class="btn primary" href="https://github.com/ThomasLangbroek/frugal">◈ GitHub</a>
-        <a class="btn line" href="https://github.com/ThomasLangbroek/frugal/blob/main/README.md">Read the README</a>
+    <div>
+      <p class="eyebrow">install</p>
+      <h2>Two commands. Then work normally.</h2>
+      <p class="lede">Rollout is per person and needs no workflow change. Routing is automatic. Uninstall keeps no state beyond the local metrics file.</p>
+      <div class="actions">
+        <a class="btn solid" href="https://github.com/ThomasLangbroek/frugal">GitHub</a>
+        <a class="btn wire" href="https://github.com/ThomasLangbroek/frugal/blob/main/README.md">README</a>
       </div>
     </div>
-    <pre class="term reveal"><span class="top"><i></i><i></i><i></i></span><code><span class="cm"># add the marketplace</span>
+    <div class="code">
+      <div class="cap">claude code</div>
+<pre><span class="cm"># add the marketplace</span>
 <span class="pr">/plugin</span> marketplace add ThomasLangbroek/frugal
 
 <span class="cm"># install the plugin</span>
-<span class="pr">/plugin</span> install frugal@frugal-marketplace
-
-<span class="cm"># optional: a saved-so-far badge</span>
-<span class="pr">/frugal:setup-statusline</span></code></pre>
+<span class="pr">/plugin</span> install frugal@frugal-marketplace</pre>
+    </div>
   </div>
 </section>
 
-<section class="sec" id="honest">
+<hr class="rule">
+
+<section id="honest">
   <div class="wrap">
-    <div class="sec-h reveal">
-      <div class="eyebrow">honest trade-offs</div>
+    <div class="head">
+      <p class="eyebrow">honest trade-offs</p>
       <h2>What it does not pretend to be.</h2>
     </div>
     <div class="honest">
-      <div class="item reveal"><h4>Claude Code only</h4><p>It leans on the harness: the Agent tool, hooks, parallel delegation. Multi-provider is a documented recipe, not a tested code path.</p></div>
-      <div class="item reveal"><h4>Advisory without the guard</h4><p>The skill steers routing well, but only the guard hook enforces it. Turn the hook on for a hard ceiling.</p></div>
-      <div class="item reveal"><h4>Metrics are bounded</h4><p>Limited to what hook events and transcripts expose. Escalations without the marker are not counted.</p></div>
+      <div><h4>Claude Code only</h4><p>It leans on the harness: the Agent tool, hooks, parallel delegation. Multi-provider is a documented recipe, not a tested code path.</p></div>
+      <div><h4>Advisory without the guard</h4><p>The skill steers routing well, but only the guard hook enforces it. Turn the hook on for a hard ceiling.</p></div>
+      <div><h4>Metrics are bounded</h4><p>Limited to what hook events and transcripts expose. Escalations without the marker are not counted.</p></div>
     </div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
-    <span class="mono">frugal · MIT · built for Claude Code</span>
-    <span class="mono"><a href="https://github.com/ThomasLangbroek/frugal">github.com/ThomasLangbroek/frugal</a></span>
+    <span>frugal · MIT · built for Claude Code</span>
+    <span><a href="https://github.com/ThomasLangbroek/frugal">github.com/ThomasLangbroek/frugal</a></span>
   </div>
 </footer>
 
-<script>
-  (function () {
-    var els = document.querySelectorAll('.reveal');
-    if (!('IntersectionObserver' in window) || matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      els.forEach(function (e) { e.classList.add('in'); });
-      return;
-    }
-    var io = new IntersectionObserver(function (entries) {
-      entries.forEach(function (en) { if (en.isIntersecting) { en.target.classList.add('in'); io.unobserve(en.target); } });
-    }, { threshold: 0.14 });
-    els.forEach(function (e) { io.observe(e); });
-  })();
-</script>
 </body>
 </html>
