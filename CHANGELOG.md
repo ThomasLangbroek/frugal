@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/ThomasLangbroek/frugal/compare/v0.12.0...v0.13.0) (2026-07-22)
+
+
+### Features
+
+* format the router report as a bill ([#20](https://github.com/ThomasLangbroek/frugal/issues/20)) ([a0bc930](https://github.com/ThomasLangbroek/frugal/commit/a0bc9308cdce94950ae5563593cd7c19264249b7))
+
 ## [0.12.0](https://github.com/ThomasLangbroek/frugal/compare/v0.11.1...v0.12.0) (2026-07-22)
 
 
