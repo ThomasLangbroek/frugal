@@ -36,6 +36,33 @@ def test_report_aggregates_and_shows_savings(tmp_path):
     assert "$" in out
 
 
+def test_report_has_saved_column_and_total_row(tmp_path):
+    path = write_metrics(tmp_path, [
+        {"agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "main_model": "claude-fable-5", "escalated": False,
+         "input_tokens": 1_000_000, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+    ])
+    out = run_stats(path)
+    assert "| Saved |" in out           # bill line-item column
+    assert "**Total**" in out           # bill total row
+    # one haiku run: $1.00 net vs $10.00 baseline -> $9.00 saved, 90%
+    assert "$9.00 (90.0%)" in out
+
+
+def test_negative_saving_formats_with_leading_minus(tmp_path):
+    # sonnet worker under haiku main loop: costs more than baseline
+    path = write_metrics(tmp_path, [
+        {"agent_type": "frugal:extractor", "model": "claude-sonnet-5",
+         "main_model": "claude-haiku-4-5", "escalated": False,
+         "input_tokens": 100_000, "output_tokens": 50_000,
+         "handoff_output_tokens": 50_000,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
+    ])
+    out = run_stats(path)
+    assert "-$" in out  # minus outside the dollar sign
+
+
 def test_empty_metrics_handled(tmp_path):
     path = tmp_path / "metrics.jsonl"
     path.write_text("")
