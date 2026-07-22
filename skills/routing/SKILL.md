@@ -17,6 +17,14 @@ Before any delegation: if a deterministic command solves the task (grep, rg, jq,
 
 Step 1 covers **one-shot** commands only: you know the exact command and its output answers the question directly. The moment discovery turns iterative — a second search informed by the first, listing directories to decide what to read next, reading files to summarise them — it is no longer a tool call, it is a locate/extract task. Bright line: the third search/list/read operation on the same question means you are exploring inline; stop and hand the whole question to `scout` or `extractor`, including what you already learned. Every raw tool result you ingest is paid at main-loop rates; a haiku worker reads the same bytes at a fraction of the cost and returns a summary.
 
+## Step 1.5: sensitivity gate
+
+Sensitivity is not a task-type signal, so it cannot live in the decision table below. Some data must never leave the main loop for a worker, however cheap the task looks. Decide this **before** tier selection, not by letting a worker fail into it.
+
+If `.claude/frugal-sensitivity.json` exists in the project, it declares rules (content regexes and path globs) and, per rule, which workers may still receive matching data. The `guard_sensitive.py` hook enforces it at spawn: a matching Agent delegation to a non-allowed worker is blocked, and you handle that sub-task inline. The gate fails closed (a broken config blocks delegation), unlike the cost hooks which fail open. With no such file the gate is off. See `examples/frugal-sensitivity.example.json`.
+
+This is an enforced default, not a substitute for judgement: for regulated data the human owns the final call on where it may go.
+
 ## Step 2: decision table
 
 Decompose the request into sub-tasks. For each, match signals to the cheapest capable agent:
