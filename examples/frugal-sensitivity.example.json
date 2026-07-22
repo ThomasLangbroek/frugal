@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy to <project>/.claude/frugal-sensitivity.json to enable the sensitivity gate. With no such file the gate is off. Each rule blocks an Agent delegation when its content matches; the gate fails CLOSED (a broken config blocks delegation). patterns are Python regexes matched against all string fields of the spawn; paths are fnmatch globs tested against whitespace-separated tokens (note: * matches / too, so secrets/* covers nested paths); allow_agents lists worker types still permitted to receive the matched data (empty = block every worker, handle inline).",
+  "rules": [
+    {
+      "name": "pii-nl-iban",
+      "_comment": "Dutch IBAN shape. Do not delegate participant financial data.",
+      "patterns": ["\\bNL\\d{2}[A-Z]{4}\\d{10}\\b"],
+      "paths": [],
+      "allow_agents": []
+    },
+    {
+      "name": "secrets-and-keys",
+      "_comment": "API keys, tokens, private key material by path or content.",
+      "patterns": ["-----BEGIN [A-Z ]*PRIVATE KEY-----", "\\b(sk|ghp|xox[baprs])[-_][A-Za-z0-9]{16,}\\b"],
+      "paths": ["secrets/*", "*.pem", "*.key", ".env", ".env.*"],
+      "allow_agents": []
+    }
+  ]
+}
