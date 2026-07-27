@@ -7,13 +7,13 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "hooks" / "log_metrics.py"
 
 
-def run_hook(tmp_path, payload):
+def run_hook(tmp_path, payload, env=None):
     metrics = tmp_path / "metrics.jsonl"
     subprocess.run(
         [sys.executable, str(SCRIPT)],
         input=json.dumps(payload),
         text=True,
-        env={"FRUGAL_METRICS_PATH": str(metrics)},
+        env={"FRUGAL_METRICS_PATH": str(metrics), **(env or {})},
         check=True,
     )
     return metrics
@@ -167,6 +167,25 @@ def test_missing_transcript_still_logs(tmp_path):
     record = json.loads(metrics.read_text().strip())
     assert record["model"] is None
     assert record["input_tokens"] == 0
+
+
+def test_non_ascii_transcript_still_logged(tmp_path):
+    # regression: cp1252 has no mapping for 0x9D, the trailing UTF-8 byte of
+    # U+201D, so a Windows default-encoding read died and dropped the record
+    transcript = tmp_path / "transcript.jsonl"
+    transcript.write_text(json.dumps(
+        {"message": {"role": "assistant", "model": "claude-haiku-4-5",
+                     "content": "he said “done”",
+                     "usage": {"input_tokens": 10, "output_tokens": 2}}},
+        ensure_ascii=False,  # Claude Code writes raw UTF-8, not \uXXXX escapes
+    ) + "\n", encoding="utf-8")
+    # force a non-UTF-8 default so this reproduces off Windows too
+    metrics = run_hook(tmp_path, payload_for(transcript, "frugal:extractor"),
+                       env={"LC_ALL": "C", "LANG": "C", "PYTHONUTF8": "0",
+                            "PYTHONCOERCECLOCALE": "0"})
+    record = json.loads(metrics.read_text(encoding="utf-8").strip())
+    assert record["agent_type"] == "frugal:extractor"
+    assert record["output_tokens"] == 2
 
 
 def test_duration_and_handoff_recorded(tmp_path):
