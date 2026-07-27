@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.3](https://github.com/ThomasLangbroek/frugal/compare/v0.13.2...v0.13.3) (2026-07-27)
+
+
+### Bug Fixes
+
+* stop guard_inline counting pipe filters as inline searches ([#29](https://github.com/ThomasLangbroek/frugal/issues/29)) ([b27db35](https://github.com/ThomasLangbroek/frugal/commit/b27db355871712a91074ffb3bf4cfabf9917ea20))
+
 ## [0.13.2](https://github.com/ThomasLangbroek/frugal/compare/v0.13.1...v0.13.2) (2026-07-27)
 
 
