@@ -30,7 +30,7 @@ Decompose the request into sub-tasks. For each, match signals to the cheapest ca
 | design, debugging, ambiguous requirements, reviews, trade-offs, anything regulated or risky | reasoning | main loop (you) |
 | task exceeds the main loop's own tier, or Fable-level work needs an isolated fresh context (parallel deep reviews, synthesis over merged summaries) | deep-reasoning | `sage` (fable) |
 
-`sage` is never a routing default. If the main loop already runs Fable, use `sage` only for context isolation, not capability.
+`sage` is never a routing default. Check what the main loop actually runs before reaching for it: on Opus 5 (or any tier below Fable) `sage` is a real capability escalation and the decision table's first clause applies; if the main loop already runs Fable, use `sage` only for context isolation, not capability.
 
 **Generic agents are never routing targets.** `Explore`, `general-purpose`, `claude`, and `Plan` are reasoning-tier and bill at main-loop rates — never spawn them for locate, extract, or summarise work, no matter how broad the fan-out. Map them down: locate/map -> `scout`; extract/summarise/classify -> `extractor`; mechanical edits -> `mechanic`/`builder`; reasoning stays in the main loop. A bare `Agent` call with no `subagent_type` defaults to `general-purpose` (expensive) — always name a cheap agent explicitly. The `guard_expensive.sh` hook blocks these at spawn time; `FRUGAL_ALLOW_EXPENSIVE=1` is the deliberate, per-session override for when a task genuinely needs main-loop breadth.
 
