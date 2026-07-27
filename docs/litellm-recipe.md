@@ -1,6 +1,6 @@
 # Multi-provider routing via LiteLLM proxy
 
-Frugal itself is provider-agnostic in design but Anthropic-only in v1: agents select model *tiers* (`haiku`, `sonnet`, `fable`) via frontmatter. To back those tiers with other providers, put a [LiteLLM proxy](https://docs.litellm.ai/docs/simple_proxy) in front of Claude Code. Claude Code speaks the Anthropic API to whatever `ANTHROPIC_BASE_URL` points at, and LiteLLM translates.
+Frugal itself is provider-agnostic in design but Anthropic-only in v1: agents select model *tiers* (`haiku`, `sonnet`, `opus`, `fable`) via frontmatter. To back those tiers with other providers, put a [LiteLLM proxy](https://docs.litellm.ai/docs/simple_proxy) in front of Claude Code. Claude Code speaks the Anthropic API to whatever `ANTHROPIC_BASE_URL` points at, and LiteLLM translates.
 
 **Caveat: this path is documented, not tested in CI.** Behaviour of non-Claude models inside Claude Code's harness varies; agentic tool use quality differs widely between models.
 
@@ -20,6 +20,12 @@ model_list:
   - model_name: claude-sonnet-5
     litellm_params:
       model: anthropic/claude-sonnet-5
+      api_key: os.environ/ANTHROPIC_API_KEY
+
+  # main-loop / opus tier -> keep on Anthropic
+  - model_name: claude-opus-5
+    litellm_params:
+      model: anthropic/claude-opus-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
   # top tier -> keep on Anthropic
