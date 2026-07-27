@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.2](https://github.com/ThomasLangbroek/frugal/compare/v0.13.1...v0.13.2) (2026-07-27)
+
+
+### Bug Fixes
+
+* stop guard_expensive denying every spawn where python3 is absent ([#26](https://github.com/ThomasLangbroek/frugal/issues/26)) ([9272ecc](https://github.com/ThomasLangbroek/frugal/commit/9272ecca8356f52cec927292572cf5f0dd2d519f)), closes [#23](https://github.com/ThomasLangbroek/frugal/issues/23)
+
 ## [0.13.1](https://github.com/ThomasLangbroek/frugal/compare/v0.13.0...v0.13.1) (2026-07-27)
 
 
