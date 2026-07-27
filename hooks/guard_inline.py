@@ -17,11 +17,15 @@ import sys
 import tempfile
 
 SEARCHY_TOOLS = {"Read", "Grep", "Glob"}
-# a searchy word counts at any command position (start, or after ; && || | ` $( or
+# a searchy word counts at any command position (start, or after ; && || & ` $( or
 # newline, with optional VAR=x assignments), so prefixes like `cd x && grep` or
 # `export F=1; rg` cannot dodge the counter. Words in ordinary arguments do not match.
+# A plain `|` is deliberately NOT a command position: downstream of a pipe the
+# word filters the previous command's output instead of reading the filesystem,
+# so `pytest -q | tail` was counting as exploration and denying test runs the
+# README promises are never blocked. `||` still counts, hence the ordering.
 SEARCHY_BASH = re.compile(
-    r"(?:^|[;&|`\n]|\$\()\s*(?:\w+=\S*\s+)*"
+    r"(?:^|;|\|\||&&|&|`|\n|\$\()\s*(?:\w+=\S*\s+)*"
     r"(rg|grep|find|fd|ls|tree|cat|head|tail|awk|jq|yq)\b")
 # stdout redirected to a file means the command writes, it does not explore.
 # `2>` / `2>&1` are stderr plumbing common in real searches; keep counting those.
