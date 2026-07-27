@@ -62,11 +62,11 @@ to get cost per tier, escalation rate, and estimated savings versus running the 
 
 ## Enforcement
 
-Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. Frugal therefore enforces on three levels, the first two active out of the box:
+Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. Frugal therefore enforces on three levels, all active out of the box:
 
 1. **Policy injection.** A `SessionStart` hook puts the routing policy in context at every session start; a `UserPromptSubmit` hook re-pins a one-line reminder on every prompt. No drift, nothing to invoke manually.
 2. **Inline-exploration budget.** A `PreToolUse` guard counts search-type tool calls (Read, Grep, Glob, search-y Bash) in the main loop. Past the budget (default 5 per prompt) further ones are denied with a pointer to the cheap workers. The budget resets on any delegation or new prompt; worker agents are never throttled. Non-search commands (git, test runners, builds) are never blocked.
-3. **Expensive-tier guard (opt-in).** `hooks/guard_expensive.sh` blocks `sage` spawns entirely. Wire it as a `PreToolUse` hook with matcher `Agent` in your `settings.json` if you want a hard ceiling.
+3. **Expensive-tier guard.** `hooks/guard_expensive.sh` blocks reasoning-tier spawns — `sage`, plus the generic `general-purpose`, `Explore`, `Plan` and `claude` agents, and bare `Agent` calls that name no `subagent_type`. It is registered in the plugin's own `hooks.json` as a `PreToolUse` hook with matcher `Agent`, so it is active on install with nothing to wire up. Cheap workers (`scout`, `extractor`, `mechanic`, `builder`) are never blocked; set `FRUGAL_ALLOW_EXPENSIVE=1` to lift the ceiling for a session.
 
 Judgement lives in prompts; enforcement lives in hooks.
 
@@ -76,7 +76,7 @@ Judgement lives in prompts; enforcement lives in hooks.
 |---|---|---|
 | `FRUGAL_INLINE_BUDGET` | `5` | Inline search ops allowed per prompt before the guard denies |
 | `FRUGAL_ALLOW_INLINE=1` | unset | Disables the inline-exploration guard for the session |
-| `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage` spawns past the opt-in expensive-tier guard |
+| `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage` and other reasoning-tier spawns past the expensive-tier guard |
 | `FRUGAL_METRICS_PATH` | `~/.claude/frugal/metrics.jsonl` | Where worker-run metrics are written |
 | `/frugal:models` | agent defaults | Per-project model overrides, e.g. `/frugal:models scout=sonnet` |
 | `.claude/routing-overrides.md` | none | Per-project routing rules; read first, always win |
