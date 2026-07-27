@@ -9,6 +9,15 @@ EXPECTED = {
     "builder": "sonnet",
     "sage": "fable",
 }
+# model tier is one axis, thinking is another: a session at high effort
+# otherwise makes a haiku scout deliberate over a grep
+EXPECTED_EFFORT = {
+    "scout": "low",
+    "extractor": "low",
+    "mechanic": "low",
+    "builder": "medium",
+    "sage": "high",
+}
 FOOTER_KEYS = ["RESULT:", "CHECKS-RUN:", "UNCERTAINTIES:", "ESCALATE:"]
 
 
@@ -30,6 +39,13 @@ def test_all_agents_exist_with_correct_model():
         assert fields["name"] == name
         assert fields["model"] == model
         assert len(fields["description"]) > 40
+
+
+def test_all_agents_pin_effort():
+    for name, effort in EXPECTED_EFFORT.items():
+        fields, _ = frontmatter(name)
+        assert fields.get("effort") == effort, (
+            f"{name}.md effort is {fields.get('effort')!r}, expected {effort!r}")
 
 
 def test_all_agents_carry_footer_contract():

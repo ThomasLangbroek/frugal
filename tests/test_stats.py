@@ -206,6 +206,31 @@ def test_session_table_groups_sorts_and_saves(tmp_path):
     assert out.index("bbbbbbbb") < out.index("aaaaaaaa")
 
 
+def floor_records(*input_tokens):
+    return [
+        {"agent_type": "frugal:scout", "model": "claude-haiku-4-5",
+         "main_model": "claude-fable-5", "escalated": False,
+         "input_tokens": n, "output_tokens": 0,
+         "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
+        for n in input_tokens
+    ]
+
+
+def test_floor_reports_median_break_even(tmp_path):
+    # haiku worker under a fable main loop, no reply to re-ingest:
+    # net is $1/$2/$3, and fable reads at $10/MTok -> 100k/200k/300k tokens.
+    # the median run is the floor, so 200,000.
+    path = write_metrics(tmp_path, floor_records(1_000_000, 2_000_000, 3_000_000))
+    out = run_stats(path)
+    assert "Delegation floor" in out
+    assert "~200,000 tokens of reading" in out
+
+
+def test_floor_hidden_below_minimum_runs(tmp_path):
+    path = write_metrics(tmp_path, floor_records(1_000_000, 2_000_000))
+    assert "Delegation floor" not in run_stats(path)
+
+
 def run_advice(path):
     return subprocess.run(
         [sys.executable, str(SCRIPT), "--path", str(path), "--advice"],

@@ -58,15 +58,17 @@ A `SubagentStop` hook logs one jsonl line per worker run (agent, model, token us
 /frugal:router-stats
 ```
 
-to get cost per tier, escalation rate, and estimated savings versus running the same work on your session's actual main-loop model (recorded per run; older records without it are compared against the top tier). Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. Learning is deliberately offline: read the report, edit the decision table.
+to get cost per tier, escalation rate, and estimated savings versus running the same work on your session's actual main-loop model (recorded per run; older records without it are compared against the top tier). Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. The report also prints a **delegation floor** per agent: a spawn costs roughly the same whether the task is trivial or large, so the report divides your measured net cost per spawn by your main-loop input rate to say how much reading a delegation has to save before it pays for itself. Under that, do it inline. Learning is deliberately offline: read the report, edit the decision table.
 
 ## Enforcement
 
-Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. Frugal therefore enforces on three levels, all active out of the box:
+Routing policy in a skill is advisory: the model follows it well, but a prompt cannot *forcibly* prevent anything. Frugal therefore enforces on four levels, three active out of the box and the fourth as soon as you set a budget:
 
 1. **Policy injection.** A `SessionStart` hook puts the routing policy in context at every session start; a `UserPromptSubmit` hook re-pins a one-line reminder on every prompt. No drift, nothing to invoke manually.
 2. **Inline-exploration budget.** A `PreToolUse` guard counts search-type tool calls (Read, Grep, Glob, search-y Bash) in the main loop. Past the budget (default 5 per prompt) further ones are denied with a pointer to the cheap workers. The budget resets on any delegation or new prompt; worker agents are never throttled. Non-search commands (git, test runners, builds) are never blocked.
 3. **Expensive-tier guard.** `hooks/guard_expensive.sh` blocks reasoning-tier spawns — `sage`, plus the generic `general-purpose`, `Explore`, `Plan` and `claude` agents, and bare `Agent` calls that name no `subagent_type`. It is registered in the plugin's own `hooks.json` as a `PreToolUse` hook with matcher `Agent`, so it is active on install with nothing to wire up. Cheap workers (`scout`, `extractor`, `mechanic`, `builder`) are never blocked; set `FRUGAL_ALLOW_EXPENSIVE=1` to lift the ceiling for a session.
+
+4. **Budget thermostat.** Set `FRUGAL_BUDGET_USD` and `hooks/guard_budget.py` meters the session against it, counting main-loop spend as well as delegated spend, because the main loop is the bigger line item and a thermostat that watches only workers reads 5% while the plan is empty. Under 80% it says nothing. From 80% a `UserPromptSubmit` warning arrives with each prompt. At 100% the notice turns into a stop-and-confirm, and reasoning-tier spawns are denied even with `FRUGAL_ALLOW_EXPENSIVE=1`. Cheap workers stay allowed throughout: blocking them would push work back into the main loop that emptied the budget.
 
 Judgement lives in prompts; enforcement lives in hooks.
 
@@ -78,6 +80,7 @@ Judgement lives in prompts; enforcement lives in hooks.
 | `FRUGAL_ALLOW_INLINE=1` | unset | Disables the inline-exploration guard for the session |
 | `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage` and other reasoning-tier spawns past the expensive-tier guard |
 | `FRUGAL_METRICS_PATH` | `~/.claude/frugal/metrics.jsonl` | Where worker-run metrics are written |
+| `FRUGAL_BUDGET_USD` | unset | Per-session spend ceiling: warns from 80%, stop-and-confirm plus no reasoning-tier spawns at 100% |
 | `/frugal:models` | agent defaults | Per-project model overrides, e.g. `/frugal:models scout=sonnet` |
 | `.claude/routing-overrides.md` | none | Per-project routing rules; read first, always win |
 
