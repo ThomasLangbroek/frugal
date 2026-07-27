@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/ThomasLangbroek/frugal/compare/v0.13.0...v0.13.1) (2026-07-27)
+
+
+### Bug Fixes
+
+* read agent transcripts as UTF-8 in log_metrics ([#25](https://github.com/ThomasLangbroek/frugal/issues/25)) ([b135a6a](https://github.com/ThomasLangbroek/frugal/commit/b135a6aa8f90c5fe523fdf46b0937715f1907ff3)), closes [#22](https://github.com/ThomasLangbroek/frugal/issues/22)
+
 ## [0.13.0](https://github.com/ThomasLangbroek/frugal/compare/v0.12.0...v0.13.0) (2026-07-22)
 
 
