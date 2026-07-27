@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/ThomasLangbroek/frugal/compare/v0.13.3...v0.14.0) (2026-07-27)
+
+
+### Features
+
+* meter session spend and publish a delegation floor ([#30](https://github.com/ThomasLangbroek/frugal/issues/30)) ([747da44](https://github.com/ThomasLangbroek/frugal/commit/747da449aa25e3a60db6a1e87ea471dc7c4d8bf3))
+
 ## [0.13.3](https://github.com/ThomasLangbroek/frugal/compare/v0.13.2...v0.13.3) (2026-07-27)
 
 
