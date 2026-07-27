@@ -136,6 +136,27 @@ def test_prefixed_search_commands_counted():
     assert run_guard(payload("Bash", session, command="cd /x && cat file")).returncode == 2
 
 
+def test_pipe_filter_not_counted():
+    # downstream of a pipe the word filters another command's output and reads
+    # no files; the README promises test runners and builds are never blocked
+    session = uuid.uuid4().hex
+    for _ in range(10):
+        assert run_guard(payload(
+            "Bash", session,
+            command="python3 -m pytest -q 2>&1 | tail -25")).returncode == 0
+    assert run_guard(payload(
+        "Bash", session, command="git log --oneline | head -5")).returncode == 0
+
+
+def test_pipeline_counted_when_a_search_leads_it():
+    # the pipe exemption must not launder a real search behind a filter
+    session = uuid.uuid4().hex
+    for _ in range(5):
+        run_guard(payload("Bash", session, command="grep -rn x . | head -5"))
+    assert run_guard(payload(
+        "Bash", session, command="ls -la | wc -l")).returncode == 2
+
+
 def test_searchy_word_as_argument_ignored():
     session = uuid.uuid4().hex
     for _ in range(10):
