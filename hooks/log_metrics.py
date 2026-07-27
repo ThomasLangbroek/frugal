@@ -48,7 +48,9 @@ def parse_transcript(path):
     # loop re-ingests; intermediate turns' output stays in the worker
     final = None  # ("id", msg_id) or ("direct", output_tokens)
     try:
-        handle = open(path)
+        # transcripts are UTF-8; without this Windows decodes as cp1252, which
+        # has no mapping for 0x81/0x8D/0x8F/0x90/0x9D and dies on smart quotes
+        handle = open(path, encoding="utf-8")
     except OSError:
         return totals, model, escalated, None, 0
     with handle:
