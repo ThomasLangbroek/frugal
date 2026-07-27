@@ -16,6 +16,10 @@
           {
             "type": "command",
             "command": "echo 'FRUGAL ROUTING ACTIVE — one-shot deterministic tool first, then cheapest capable agent (scout/extractor -> mechanic/builder -> main loop). Bright line: 3+ inline search/list/read operations on one question = you are exploring inline, delegate to scout/extractor instead. Escalate only on verified failure.'"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_budget.py\""
           }
         ]
       }
@@ -45,6 +49,15 @@
           {
             "type": "command",
             "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_sensitive.py\""
+          }
+        ]
+      },
+      {
+        "matcher": "Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_budget.py\""
           }
         ]
       }

@@ -42,6 +42,8 @@ Decompose the request into sub-tasks. For each, match signals to the cheapest ca
 
 **Generic agents are never routing targets.** `Explore`, `general-purpose`, `claude`, and `Plan` are reasoning-tier and bill at main-loop rates — never spawn them for locate, extract, or summarise work, no matter how broad the fan-out. Map them down: locate/map -> `scout`; extract/summarise/classify -> `extractor`; mechanical edits -> `mechanic`/`builder`; reasoning stays in the main loop. A bare `Agent` call with no `subagent_type` defaults to `general-purpose` (expensive) — always name a cheap agent explicitly. The `guard_expensive.sh` hook blocks these at spawn time; `FRUGAL_ALLOW_EXPENSIVE=1` is the deliberate, per-session override for when a task genuinely needs main-loop breadth.
 
+Workers pin their own reasoning effort in frontmatter: `low` for `scout`, `extractor` and `mechanic`, `medium` for `builder`, `high` for `sage`. Model tier is one axis of cost and thinking is another, so a session running at high effort no longer makes a haiku scout deliberate over a grep.
+
 ## Never delegate
 
 Security-sensitive changes, destructive operations, ambiguous requirements, anything needing user judgement. These stay in the main loop, always.
@@ -49,6 +51,7 @@ Security-sensitive changes, destructive operations, ambiguous requirements, anyt
 ## Delegation rules
 
 - Delegate only self-contained sub-tasks the prompt can fully specify. If specifying takes longer than doing: do it inline.
+- Delegation has a floor. A spawn costs about the same whether the task is trivial or large, so a job too small to repay that fixed cost is cheaper done inline. `scripts/stats.py` prints the measured floor per agent ("delegating pays off above ~N tokens of reading") from your own runs; under it, read it yourself.
 - Context handoff: pass pointers (`path:line` ranges, commit SHAs, URLs), never pasted file content. Pasting is billed as main-loop output tokens (fable ~$50/MTok, and generating them takes wall-clock time); a worker reads the same bytes as haiku input (~$1/MTok) in one round trip. Paste only what the worker cannot retrieve itself — text that exists solely in the conversation (user message, prior tool output, fetched page) — or trivially small snippets (<~200 tokens).
 - Batch independent delegations in one message so they run in parallel. Large fan-outs (e.g. review 50 modules): fan out `scout`/`extractor` workers, merge their summaries, do one final reasoning pass yourself.
 - Workers end with a footer (`RESULT:` / `CHECKS-RUN:` / `UNCERTAINTIES:` / `ESCALATE:`). A worker reporting ambiguity: resolve it yourself; never re-prompt the worker to guess.
@@ -60,3 +63,9 @@ Security-sensitive changes, destructive operations, ambiguous requirements, anyt
 3. The worker's `ESCALATE: yes` is advisory input to rules 1 and 2, never the sole trigger.
 4. If the task still exceeds your own tier after you take over: hand it to `sage` with the full failure history, prefixed `[frugal-escalation from main]`. One attempt, final.
 5. Never start at an expensive tier unless the decision table sends you there.
+
+## Budget
+
+`FRUGAL_BUDGET_USD` sets a per-session ceiling, counting main-loop spend as well as delegated spend. Under 80% of it nothing is said. From 80% a warning arrives with each prompt: delegate harder, keep worker replies terse, leave `sage` alone. At 100% stop and confirm with the user before starting new work, and reasoning-tier spawns are denied even with `FRUGAL_ALLOW_EXPENSIVE=1`, because they cost more than the main loop does. Cheap workers stay allowed at every level: they are how you get back under.
+
+Unset means no ceiling and no warnings.

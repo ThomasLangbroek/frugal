@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Frugal metrics report: cost per agent tier, escalation rate, savings vs baseline.
 
-Prices are USD per million tokens (verified 09-07-2026). Cache reads bill at
+Prices are USD per million tokens (verified 27-07-2026). Cache reads bill at
 0.1x input, cache writes at 1.25x input (5-minute TTL). Edit PRICES when
 Anthropic pricing changes.
 """
@@ -16,12 +16,13 @@ ADVICE_MIN_RUNS = 5
 ADVICE_WINDOW_DAYS = 14
 ADVICE_ESCALATION_RATE = 0.30
 ADVICE_HANDOFF_TOKENS = 2000
+FLOOR_MIN_RUNS = 3  # below this the median per-spawn cost is noise
 
 # substring match on the model id, first hit wins; values: (input, output) $/MTok
 PRICES = [
     ("haiku", (1.00, 5.00)),
     ("sonnet", (3.00, 15.00)),
-    ("opus", (5.00, 25.00)),
+    ("opus", (5.00, 25.00)),  # matches claude-opus-5 and the 4.x line, same rates
     ("fable", (10.00, 50.00)),
 ]
 BASELINE = ("fable", PRICES[-1][1])  # what everything would cost on the top tier
@@ -65,6 +66,16 @@ def handoff_cost(record):
 def net_cost(record):
     """True cost of the delegation: worker spend plus re-ingestion."""
     return cost_usd(record) + handoff_cost(record)
+
+
+def median(values):
+    values = sorted(values)
+    if not values:
+        return 0.0
+    mid = len(values) // 2
+    if len(values) % 2:
+        return values[mid]
+    return (values[mid - 1] + values[mid]) / 2
 
 
 def money(x):
@@ -209,6 +220,45 @@ def session_table(records):
     return "\n".join(lines)
 
 
+def floor_table(records):
+    """Prospective break-even: the smallest job worth delegating.
+
+    A spawn costs about the same whether the task is tiny or large, so below
+    some size doing the work in the main loop is cheaper. Dividing net cost
+    per spawn by the main-loop input rate expresses that size in the only
+    currency the routing decision has: tokens of reading avoided.
+
+    Deliberately optimistic. It ignores that the worker re-reads bytes the
+    main loop would have read once, so the true floor is higher.
+    """
+    per_agent = defaultdict(list)
+    for record in records:
+        name = record.get("agent_type")
+        p_in, _ = price_for(record.get("main_model"))
+        if name and p_in:
+            per_agent[name].append(net_cost(record) / p_in * 1_000_000)
+    rows = [(name, median(costs), len(costs))
+            for name, costs in per_agent.items()
+            if len(costs) >= FLOOR_MIN_RUNS]
+    if not rows:
+        return ""
+    lines = [
+        "## Delegation floor",
+        "",
+        "| Agent | Runs | Delegating pays off above |",
+        "|---|---|---|",
+    ]
+    for name, tokens, runs in sorted(rows):
+        lines.append(f"| {name} | {runs} | ~{tokens:,.0f} tokens of reading |")
+    lines += [
+        "",
+        "*Median net cost per spawn, expressed as main-loop input tokens. "
+        "Under that, read it yourself. An optimistic floor: the worker also "
+        "re-reads what you would have read once.*",
+    ]
+    return "\n".join(lines)
+
+
 def advice(records, now=None):
     """Routing feedback: 0-3 one-liners, only when a route is measurably
     miscalibrated over enough recent runs. Silent when healthy, so the
@@ -267,9 +317,9 @@ def main():
             print(text)
         return
     print(report(records))
-    table = session_table(records)
-    if table:
-        print("\n" + table)
+    for table in (floor_table(records), session_table(records)):
+        if table:
+            print("\n" + table)
 
 
 if __name__ == "__main__":
