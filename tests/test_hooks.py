@@ -56,6 +56,16 @@ def test_guard_wired_on_agent():
     assert any("guard_expensive.sh" in c for c in cmds)
 
 
+def test_budget_guard_wired_on_prompt_and_agent():
+    # the thermostat needs both halves: the warning arrives per prompt, the
+    # over-budget denial only bites at spawn time
+    prompt_cmds = [h["command"] for b in HOOKS["UserPromptSubmit"]
+                   for h in b["hooks"]]
+    assert any("guard_budget.py" in c for c in prompt_cmds)
+    agent_cmds = [h["command"] for b in HOOKS["PreToolUse"] for h in b["hooks"]]
+    assert any("guard_budget.py" in c for c in agent_cmds)
+
+
 def test_guard_blocks_expensive_agents():
     for atype in ("Explore", "general-purpose", "claude", "Plan", "sage", "frugal:sage"):
         proc = run_guard({"tool_name": "Agent", "tool_input": {"subagent_type": atype}})
