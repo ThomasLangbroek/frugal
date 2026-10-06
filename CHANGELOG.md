@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.1](https://github.com/ThomasLangbroek/frugal/compare/v0.14.0...v0.14.1) (2026-10-06)
+
+
+### Bug Fixes
+
+* **stats:** current model prices and per-model report rows ([#42](https://github.com/ThomasLangbroek/frugal/issues/42)) ([abb568a](https://github.com/ThomasLangbroek/frugal/commit/abb568a84feae49c6bd5987cb746e48a50429017))
+
 ## [0.14.0](https://github.com/ThomasLangbroek/frugal/compare/v0.13.3...v0.14.0) (2026-07-27)
 
 
