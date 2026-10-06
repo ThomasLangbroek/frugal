@@ -21,7 +21,9 @@ FLOOR_MIN_RUNS = 3  # below this the median per-spawn cost is noise
 # substring match on the model id, first hit wins; values: (input, output) $/MTok
 PRICES = [
     ("haiku", (1.00, 5.00)),
-    ("sonnet", (3.00, 15.00)),
+    ("sonnet-5", (2.00, 10.00)),  # claude-sonnet-5 (specific rows before generic ones)
+    ("sonnet", (3.00, 15.00)),  # sonnet 4.6 and older
+    ("opus-5-5", (4.00, 20.00)),  # claude-opus-5-5
     ("opus", (5.00, 25.00)),  # matches claude-opus-5 and the 4.x line, same rates
     ("fable", (10.00, 50.00)),
 ]
@@ -114,7 +116,9 @@ def report(records):
                                   "out": 0, "net": 0.0, "baseline": 0.0,
                                   "dur_ms": 0, "dur_n": 0})
     for record in records:
-        group = groups[record.get("agent_type") or "unknown"]
+        agent = record.get("agent_type") or "unknown"
+        model = (record.get("model") or "?").removeprefix("claude-")
+        group = groups[f"{agent} [{model}]"]
         group["runs"] += 1
         group["escalations"] += 1 if record.get("escalated") else 0
         group["in"] += record.get("input_tokens", 0)
@@ -127,7 +131,7 @@ def report(records):
     lines = [
         "# Frugal routing report",
         "",
-        "| Agent | Runs | Escalations | Input tok | Output tok "
+        "| Agent [model] | Runs | Escalations | Input tok | Output tok "
         "| Net cost | At baseline | Saved | Avg s |",
         "|---|---|---|---|---|---|---|---|---|",
     ]
