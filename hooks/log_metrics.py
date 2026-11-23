@@ -19,15 +19,6 @@ USAGE_KEYS = (
 )
 
 
-def message_texts(content):
-    if isinstance(content, str):
-        return [content]
-    if isinstance(content, list):
-        return [b.get("text", "") for b in content
-                if isinstance(b, dict) and b.get("type") == "text"]
-    return []
-
-
 def entry_ts(entry):
     raw = entry.get("timestamp")
     if not isinstance(raw, str):
@@ -42,7 +33,6 @@ def parse_transcript(path):
     totals = dict.fromkeys(USAGE_KEYS, 0)
     by_id = {}
     model = None
-    escalated = False
     first_ts = last_ts = None
     # the LAST response's output is (approximately) the reply the main
     # loop re-ingests; intermediate turns' output stays in the worker
@@ -52,7 +42,7 @@ def parse_transcript(path):
         # has no mapping for 0x81/0x8D/0x8F/0x90/0x9D and dies on smart quotes
         handle = open(path, encoding="utf-8")
     except OSError:
-        return totals, model, escalated, None, 0
+        return totals, model, None, 0
     with handle:
         for line in handle:
             try:
@@ -66,12 +56,6 @@ def parse_transcript(path):
             message = entry.get("message")
             if not isinstance(message, dict):
                 continue
-            if not escalated and message.get("role") == "user":
-                # escalation re-dispatches prefix their prompt with the
-                # marker; the policy text merely quotes it mid-sentence
-                if any(t.startswith("[frugal-escalation")
-                       for t in message_texts(message.get("content"))):
-                    escalated = True
             usage = message.get("usage")
             if isinstance(usage, dict):
                 model = message.get("model") or model
@@ -107,7 +91,7 @@ def parse_transcript(path):
     duration_ms = None
     if first_ts is not None and last_ts is not None:
         duration_ms = int(round((last_ts - first_ts) * 1000))
-    return totals, model, escalated, duration_ms, handoff
+    return totals, model, duration_ms, handoff
 
 
 def main_model_from(path, tail_bytes=65536):
@@ -132,6 +116,26 @@ def main_model_from(path, tail_bytes=65536):
     return None
 
 
+def main_spend(payload):
+    """Cumulative main-loop spend for the session so far, in USD. Shares the
+    budget thermostat's incremental scanner and per-session state file, so
+    the transcript is never re-read from the top.
+
+    ponytail: stored in dollars at today's prices, unlike the token counts
+    beside it, so a later price fix does not reprice it. Store main-loop
+    token totals instead if that drift ever shows up in the report.
+    """
+    try:
+        from guard_budget import main_loop_spend, read_state, write_state
+        session_id = payload.get("session_id")
+        spend, state = main_loop_spend(
+            payload.get("transcript_path") or "", read_state(session_id))
+        write_state(session_id, state)
+        return round(spend, 4)
+    except Exception:
+        return None
+
+
 def main():
     payload = json.load(sys.stdin)
     # agent_transcript_path is the subagent's own transcript;
@@ -140,7 +144,7 @@ def main():
     agent_transcript = payload.get("agent_transcript_path")
     if not agent_transcript or not payload.get("agent_type"):
         return  # typeless stops are internal machinery, not routed work
-    totals, model, escalated, duration_ms, handoff = parse_transcript(
+    totals, model, duration_ms, handoff = parse_transcript(
         agent_transcript)
     record = {
         "ts": round(time.time(), 3),
@@ -149,9 +153,9 @@ def main():
         "agent_type": payload.get("agent_type"),
         "model": model,
         "main_model": main_model_from(payload.get("transcript_path") or ""),
-        "escalated": escalated,
         "duration_ms": duration_ms,
         "handoff_output_tokens": handoff,
+        "main_spend_usd": main_spend(payload),
         **totals,
     }
     path = os.environ.get("FRUGAL_METRICS_PATH") or os.path.expanduser(

@@ -34,10 +34,8 @@ def payload_for(transcript, agent_type="frugal:mechanic"):
     }
 
 
-def test_sums_usage_and_detects_escalation(tmp_path):
+def test_sums_usage(tmp_path):
     transcript = make_transcript(tmp_path, [
-        {"message": {"role": "user",
-                     "content": "[frugal-escalation from scout] retry this"}},
         {"message": {"role": "assistant", "model": "claude-sonnet-5",
                      "usage": {"input_tokens": 100, "output_tokens": 20,
                                "cache_read_input_tokens": 5,
@@ -52,40 +50,11 @@ def test_sums_usage_and_detects_escalation(tmp_path):
     record = json.loads(metrics.read_text().strip())
     assert record["agent_type"] == "frugal:mechanic"
     assert record["model"] == "claude-sonnet-5"
-    assert record["escalated"] is True
+    assert "escalated" not in record
     assert record["input_tokens"] == 150
     assert record["output_tokens"] == 30
     assert record["cache_read_input_tokens"] == 5
     assert record["cache_creation_input_tokens"] == 7
-
-
-def test_no_escalation_marker(tmp_path):
-    transcript = make_transcript(tmp_path, [
-        {"message": {"role": "user", "content": "find the config"}},
-        {"message": {"role": "assistant", "model": "claude-haiku-4-5",
-                     "usage": {"input_tokens": 10, "output_tokens": 2,
-                               "cache_read_input_tokens": 0,
-                               "cache_creation_input_tokens": 0}}},
-    ])
-    metrics = run_hook(tmp_path, payload_for(transcript, "frugal:scout"))
-    record = json.loads(metrics.read_text().strip())
-    assert record["escalated"] is False
-    assert record["model"] == "claude-haiku-4-5"
-
-
-def test_marker_mid_text_is_not_escalation(tmp_path):
-    # the routing policy itself quotes "[frugal-escalation" mid-sentence;
-    # only a prefix on a user message counts
-    transcript = make_transcript(tmp_path, [
-        {"message": {"role": "user",
-                     "content": "Prefix retries with [frugal-escalation from x]."}},
-        {"message": {"role": "user", "content": [
-            {"type": "text",
-             "text": "policy says: use [frugal-escalation from main] markers"}]}},
-    ])
-    metrics = run_hook(tmp_path, payload_for(transcript))
-    record = json.loads(metrics.read_text().strip())
-    assert record["escalated"] is False
 
 
 def test_duplicate_message_ids_billed_once_at_max(tmp_path):
@@ -218,3 +187,26 @@ def test_no_timestamps_gives_null_duration(tmp_path):
     record = json.loads(metrics.read_text().strip())
     assert record["duration_ms"] is None
     assert record["handoff_output_tokens"] == 2
+
+
+def test_records_main_loop_spend(tmp_path):
+    import pytest
+    main = tmp_path / "main.jsonl"
+    main.write_text(json.dumps({"message": {
+        "role": "assistant", "id": "m1", "model": "claude-fable-5-2",
+        "usage": {"input_tokens": 1000000, "output_tokens": 0}}}) + "\n")
+    worker = make_transcript(tmp_path, [
+        {"message": {"role": "assistant", "model": "claude-sonnet-5",
+                     "usage": {"input_tokens": 1, "output_tokens": 1}}}])
+    payload = {**payload_for(worker), "transcript_path": str(main)}
+    run_hook(tmp_path, payload)
+    metrics = run_hook(tmp_path, payload)
+    records = [json.loads(l) for l in metrics.read_text().splitlines()]
+    assert records[0]["main_spend_usd"] == pytest.approx(8.0)
+    assert records[1]["main_spend_usd"] == pytest.approx(8.0)
+    assert (tmp_path / "budget-s1.json").exists()
+    missing = tmp_path / "missing"
+    missing.mkdir()
+    metrics = run_hook(missing, {**payload,
+                                 "transcript_path": str(tmp_path / "nope.jsonl")})
+    assert json.loads(metrics.read_text().splitlines()[-1])["main_spend_usd"] == 0

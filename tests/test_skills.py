@@ -27,7 +27,6 @@ def test_routing_skill_covers_all_agents_and_protocol():
     for agent in ("scout", "extractor", "mechanic", "builder", "sage"):
         assert agent in text
     for marker in (
-        "[frugal-escalation from",
         "RESULT:",
         "ESCALATE:",
         ".claude/routing-overrides.md",

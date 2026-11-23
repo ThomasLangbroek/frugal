@@ -1,7 +1,10 @@
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "stats.py"
@@ -31,7 +34,7 @@ def test_report_aggregates_and_shows_savings(tmp_path):
     ])
     out = run_stats(path)
     assert "frugal:scout" in out and "frugal:mechanic" in out
-    assert "escalation" in out.lower()
+    assert "scalation" not in out
     assert "baseline" in out.lower()
     assert "$" in out
 
@@ -150,8 +153,8 @@ def test_losing_delegation_flagged_when_net_exceeds_baseline(tmp_path):
          "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
     ])
     out = run_stats(path)
-    # worker (sonnet): 100k*$3 + 50k*$15 = $1.05; handoff 50k*$1 = $0.05
-    # net $1.10 vs baseline (haiku): 100k*$1 + 50k*$5 = $0.35 -> loses
+    # worker (sonnet 5): 100k*$2 + 50k*$10 = $0.70; handoff 50k*$1 = $0.05
+    # net $0.75 vs baseline (haiku): 100k*$1 + 50k*$5 = $0.35 -> loses
     assert "loses money" in out
     assert "frugal:extractor" in out
 
@@ -241,7 +244,7 @@ def run_advice(path):
 def recent(agent_type, n, **overrides):
     import time as _time
     base = {"agent_type": agent_type, "model": "claude-haiku-4-5",
-            "main_model": "claude-fable-5", "escalated": False,
+            "main_model": "claude-fable-5",
             "ts": _time.time(), "input_tokens": 100_000,
             "output_tokens": 5_000, "handoff_output_tokens": 500,
             "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
@@ -251,13 +254,6 @@ def recent(agent_type, n, **overrides):
 def test_advice_silent_when_healthy(tmp_path):
     path = write_metrics(tmp_path, recent("frugal:scout", 10))
     assert run_advice(path) == ""
-
-
-def test_advice_flags_high_escalation(tmp_path):
-    runs = recent("frugal:scout", 6) + recent("frugal:scout", 4, escalated=True)
-    path = write_metrics(tmp_path, runs)
-    out = run_advice(path)
-    assert "frugal:scout" in out and "one tier up" in out
 
 
 def test_advice_flags_losing_route(tmp_path):
@@ -277,11 +273,139 @@ def test_advice_flags_fat_handoffs(tmp_path):
 
 
 def test_advice_needs_minimum_runs(tmp_path):
-    path = write_metrics(tmp_path, recent("frugal:scout", 4, escalated=True))
+    path = write_metrics(tmp_path, recent("frugal:scout", 4, handoff_output_tokens=5_000))
     assert run_advice(path) == ""
 
 
 def test_advice_ignores_stale_records(tmp_path):
     path = write_metrics(tmp_path, recent(
-        "frugal:scout", 10, escalated=True, ts=1.0))  # 1970: far outside window
+        "frugal:scout", 10, handoff_output_tokens=5_000, ts=1.0))  # 1970: far outside window
     assert run_advice(path) == ""
+
+
+def test_price_for_distinguishes_generations():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import price_for
+    assert price_for("claude-sonnet-5") == (2.00, 10.00)
+    assert price_for("claude-sonnet-4-6") == (3.00, 15.00)
+    assert price_for("claude-fable-5-1") == (10.00, 50.00)
+    assert price_for("claude-haiku-5-5") == (0.10, 0.50)
+    assert price_for("claude-haiku-4-5-20251001") == (1.00, 5.00)
+    assert price_for("claude-sonnet-5-5") == (2.00, 10.00)
+    assert price_for("claude-opus-5-5") == (4.00, 20.00)
+    assert price_for("claude-opus-5") == (5.00, 25.00)
+    assert price_for("claude-fable-5-2") == (8.00, 40.00)
+    assert price_for("claude-fable-5") == (10.00, 50.00)
+
+
+def test_cache_read_price_per_model():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import cache_read_price, cost_usd
+    assert cache_read_price("claude-fable-5-2") == 0.20
+    assert cache_read_price("claude-opus-5-5") == 0.20
+    assert cache_read_price("claude-sonnet-5-5") == 0.10
+    assert cache_read_price("claude-sonnet-5") == pytest.approx(0.20)
+    assert cache_read_price("claude-haiku-4-5") == pytest.approx(0.10)
+    assert cache_read_price("claude-fable-5-1") == pytest.approx(1.00)
+    rec = {"model": "claude-fable-5-2", "cache_read_input_tokens": 1_000_000}
+    assert cost_usd(rec) == pytest.approx(0.20)
+    assert cost_usd(rec, "claude-fable-5") == pytest.approx(1.00)
+
+
+def test_baseline_falls_back_to_top_tier_without_main_model():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import baseline_cost
+    rec = {"model": "claude-haiku-5-5", "input_tokens": 1_000_000}
+    assert baseline_cost(rec) == pytest.approx(10.00)
+    assert baseline_cost({**rec, "main_model": "claude-opus-5-5"}) == pytest.approx(4.00)
+
+
+def test_report_folds_one_off_agents_when_table_is_long(tmp_path):
+    runs = [dict(r, agent_type=f"adhoc-{i}", model="claude-sonnet-5")
+            for i, r in enumerate(recent("x", 30))]
+    runs += recent("frugal:scout", 3, model="claude-haiku-5-5")
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "frugal:scout [haiku-5-5]" in out
+    assert "other [sonnet-5]" in out
+    assert "30 agent types" in out
+    assert "adhoc-0 " not in out
+
+
+def test_report_keeps_short_table_unfolded(tmp_path):
+    runs = [dict(r, agent_type=f"adhoc-{i}") for i, r in enumerate(recent("x", 2))]
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "adhoc-0" in out and "adhoc-1" in out
+    assert "other [" not in out
+
+
+def test_session_table_folds_older_sessions(tmp_path):
+    runs = [dict(r, session_id=f"sess{i:04d}-xxxx", ts=100.0 + i)
+            for i, r in enumerate(recent("frugal:scout", 12))]
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "2 older" in out
+    assert "sess0011" in out
+    assert "sess0000" not in out
+
+
+def test_days_filter(tmp_path):
+    path = write_metrics(tmp_path, recent("frugal:scout", 1, ts=1.0)
+                         + recent("frugal:scout", 1, ts=time.time()))
+    out = subprocess.run(
+        [sys.executable, str(SCRIPT), "--path", str(path), "--days", "1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "| **Total** | **1** |" in out
+
+
+def _rec(model, **kw):
+    return {"agent_type": "frugal:scout", "model": model,
+            "input_tokens": 1_000_000, "output_tokens": 0,
+            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+            **kw}
+
+
+def test_unverified_models_flagged_in_report(tmp_path):
+    out = run_stats(write_metrics(tmp_path, [
+        _rec("claude-haiku-6", main_model="claude-fable-5-2")]))
+    assert "Unverified prices:" in out and "claude-haiku-6" in out
+    line = next(l for l in out.splitlines() if "Unverified prices:" in l)
+    assert "claude-fable-5-2" not in line.split("Unverified prices:")[1]
+    out = run_stats(write_metrics(tmp_path, [
+        _rec("claude-haiku-4-5-20251001", main_model="claude-fable-5-2")]))
+    assert "Unverified prices" not in out
+    out = run_stats(write_metrics(tmp_path, [_rec("<synthetic>")]))
+    assert "Unverified prices" not in out
+
+
+def test_advice_flags_unverified_model(tmp_path):
+    path = write_metrics(tmp_path, [
+        _rec("claude-sonnet-6", ts=time.time()) for _ in range(3)])
+    assert "no verified price for claude-sonnet-6" in run_advice(path)
+    path = write_metrics(tmp_path, [
+        _rec("claude-sonnet-6", ts=1.0) for _ in range(3)])
+    assert run_advice(path) == ""
+
+
+def _metered(sid="sessionA", **kw):
+    return [_rec("claude-haiku-5-5", session_id=sid, ts=time.time(), **kw)
+            for _ in range(2)]
+
+
+def test_session_table_shows_main_loop_share(tmp_path):
+    recs = _metered(main_spend_usd=1.0)
+    recs[1]["main_spend_usd"] = 1.8
+    out = run_stats(write_metrics(tmp_path, recs))
+    assert any("| $1.80 | 10% |" in l for l in out.splitlines()
+               if l.startswith("| sessionA"))
+    out = run_stats(write_metrics(tmp_path, _metered()))
+    assert any(l.endswith("| - | - |") for l in out.splitlines()
+               if l.startswith("| sessionA"))
+
+
+def test_session_total_ignores_unmetered_sessions_for_share(tmp_path):
+    recs = _metered(main_spend_usd=1.0)
+    recs[1]["main_spend_usd"] = 1.8
+    recs.append(_rec("claude-haiku-5-5", session_id="sessionB", ts=time.time()))
+    out = run_stats(write_metrics(tmp_path, recs))
+    total = next(l for l in out.splitlines() if "**Total**" in l and "$1.80" in l)
+    assert "**$1.80**" in total and "**10%**" in total

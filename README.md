@@ -52,13 +52,13 @@ The router then applies four rules:
 
 ## Metrics and the cost report
 
-A `SubagentStop` hook logs one jsonl line per worker run (agent, model, token usage, escalation flag) to `~/.claude/frugal/metrics.jsonl`. Run:
+A `SubagentStop` hook logs one jsonl line per worker run (agent, model, token usage) to `~/.claude/frugal/metrics.jsonl`. Run:
 
 ```
 /frugal:router-stats
 ```
 
-to get cost per tier, escalation rate, and estimated savings versus running the same work on your session's actual main-loop model (recorded per run; older records without it are compared against the top tier). Prices live in `scripts/stats.py` (`PRICES`); update them when Anthropic pricing changes. The report also prints a **delegation floor** per agent: a spawn costs roughly the same whether the task is trivial or large, so the report divides your measured net cost per spawn by your main-loop input rate to say how much reading a delegation has to save before it pays for itself. Under that, do it inline. Learning is deliberately offline: read the report, edit the decision table.
+to get cost per tier and estimated savings versus running the same work on your session's actual main-loop model (recorded per run; older records without it are compared against the top tier). Prices live in `scripts/stats.py` (`PRICES`, plus `CACHE_READ` for models that discount cache reads below 0.1x input); update them when Anthropic pricing changes. `python3 scripts/stats.py --days 30` limits the report to recent runs, and a long agent table folds agents with fewer than three runs into one `other` row per model. The per-session table also shows what the main loop itself spent and the delegated share of the session's bill, so you can see whether routing moves the real total and not only the worker slice. Model ids whose price was never checked are flagged as **unverified** in the report and at session start, because a new generation otherwise inherits its predecessor's rate silently; `VERIFIED` in `scripts/stats.py` is that list. The report also prints a **delegation floor** per agent: a spawn costs roughly the same whether the task is trivial or large, so the report divides your measured net cost per spawn by your main-loop input rate to say how much reading a delegation has to save before it pays for itself. Under that, do it inline. Learning is deliberately offline: read the report, edit the decision table.
 
 ## Enforcement
 
@@ -66,7 +66,7 @@ Routing policy in a skill is advisory: the model follows it well, but a prompt c
 
 1. **Policy injection.** A `SessionStart` hook puts the routing policy in context at every session start; a `UserPromptSubmit` hook re-pins a one-line reminder on every prompt. No drift, nothing to invoke manually.
 2. **Inline-exploration budget.** A `PreToolUse` guard counts search-type tool calls (Read, Grep, Glob, search-y Bash) in the main loop. Past the budget (default 5 per prompt) further ones are denied with a pointer to the cheap workers. The budget resets on any delegation or new prompt; worker agents are never throttled. Non-search commands (git, test runners, builds) are never blocked.
-3. **Expensive-tier guard.** `hooks/guard_expensive.sh` blocks reasoning-tier spawns — `sage`, plus the generic `general-purpose`, `Explore`, `Plan` and `claude` agents, and bare `Agent` calls that name no `subagent_type`. It is registered in the plugin's own `hooks.json` as a `PreToolUse` hook with matcher `Agent`, so it is active on install with nothing to wire up. Cheap workers (`scout`, `extractor`, `mechanic`, `builder`) are never blocked; set `FRUGAL_ALLOW_EXPENSIVE=1` to lift the ceiling for a session.
+3. **Expensive-tier guard.** `hooks/guard_expensive.sh` blocks reasoning-tier spawns — `sage`, plus the generic `general-purpose`, `Explore`, `Plan`, `claude` and `fork` agents, and bare `Agent` calls that name no `subagent_type`. It is registered in the plugin's own `hooks.json` as a `PreToolUse` hook with matcher `Agent`, so it is active on install with nothing to wire up. A generic agent that pins a cheap tier through the Agent tool's `model` parameter (`haiku` or `sonnet`) passes; `fork` never does, because it ignores `model`. Cheap workers (`scout`, `extractor`, `mechanic`, `builder`) are never blocked; set `FRUGAL_ALLOW_EXPENSIVE=1` to lift the ceiling for a session.
 
 4. **Budget thermostat.** Set `FRUGAL_BUDGET_USD` and `hooks/guard_budget.py` meters the session against it, counting main-loop spend as well as delegated spend, because the main loop is the bigger line item and a thermostat that watches only workers reads 5% while the plan is empty. Under 80% it says nothing. From 80% a `UserPromptSubmit` warning arrives with each prompt. At 100% the notice turns into a stop-and-confirm, and reasoning-tier spawns are denied even with `FRUGAL_ALLOW_EXPENSIVE=1`. Cheap workers stay allowed throughout: blocking them would push work back into the main loop that emptied the budget.
 
@@ -78,13 +78,13 @@ Judgement lives in prompts; enforcement lives in hooks.
 |---|---|---|
 | `FRUGAL_INLINE_BUDGET` | `5` | Inline search ops allowed per prompt before the guard denies |
 | `FRUGAL_ALLOW_INLINE=1` | unset | Disables the inline-exploration guard for the session |
-| `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage` and other reasoning-tier spawns past the expensive-tier guard |
+| `FRUGAL_ALLOW_EXPENSIVE=1` | unset | Allows `sage`, `fork` and other reasoning-tier spawns past the expensive-tier guard |
 | `FRUGAL_METRICS_PATH` | `~/.claude/frugal/metrics.jsonl` | Where worker-run metrics are written |
 | `FRUGAL_BUDGET_USD` | unset | Per-session spend ceiling: warns from 80%, stop-and-confirm plus no reasoning-tier spawns at 100% |
 | `/frugal:models` | agent defaults | Per-project model overrides, e.g. `/frugal:models scout=sonnet` |
 | `.claude/routing-overrides.md` | none | Per-project routing rules; read first, always win |
 
-Too aggressive for your taste? `FRUGAL_ALLOW_INLINE=1` in your environment turns the hard guard off while keeping the advisory policy. Want it gone entirely? `/plugin uninstall frugal` — frugal keeps no state outside the metrics file.
+Too aggressive for your taste? `FRUGAL_ALLOW_INLINE=1` in your environment turns the hard guard off while keeping the advisory policy. Want it gone entirely? `/plugin uninstall frugal` — frugal keeps no state outside the metrics file and the `budget-*.json` cursors beside it.
 
 ## Configuration
 
@@ -115,11 +115,11 @@ It prints nothing when no metrics exist yet, so your statusline stays clean.
 
 ## Evaluating routing quality
 
-Deliberately no synthetic eval harness: headless scenario evals proved flaky (other plugins' skills win trigger races, model nondeterminism) while measuring little. Evaluate with real usage instead: work normally for a few days, then run `/frugal:router-stats` and read delegation rate, tier mix, and escalation rate. High escalations on one agent means its table row routes too low; near-zero savings means work is not being delegated.
+Deliberately no synthetic eval harness: headless scenario evals proved flaky (other plugins' skills win trigger races, model nondeterminism) while measuring little. Evaluate with real usage instead: work normally for a few days, then run `/frugal:router-stats` and read delegation rate, tier mix and savings per agent. An agent on the "loses money" line is routed too high or given jobs too small; near-zero savings means work is not being delegated.
 
 ## Privacy
 
-Metrics are agent names, model ids, token counts and an escalation flag — one local jsonl line per worker run, written to `~/.claude/frugal/metrics.jsonl`. No prompt content, no file paths from your projects, no telemetry, nothing leaves your machine. Delete the file at any time; the report simply starts over.
+Metrics are agent names, model ids, token counts and the session's running main-loop spend in dollars — one local jsonl line per worker run, written to `~/.claude/frugal/metrics.jsonl`. No prompt content, no file paths from your projects, no telemetry, nothing leaves your machine. Beside it sit small `budget-<session>.json` files: scan cursors (a byte offset and a running total) so the session transcript is never re-read from the top. Delete the file at any time; the report simply starts over.
 
 ## For teams
 
@@ -131,7 +131,7 @@ Be precise about the cost claim when you pitch it internally: in our measurement
 
 - **Advisory unless the guard hook is enabled.** The skill steers routing; only the hook enforces it.
 - **Claude Code only.** The router leans on the harness (Agent tool, hooks, parallel delegation). Multi-provider is a documented recipe, not a tested code path.
-- **Metrics are limited** to fields hook events and transcripts expose. Escalations are detected via a prompt marker, so escalations performed without the marker are not counted.
+- **Metrics are limited** to fields hook events and transcripts expose. Escalations are not counted: nothing in a hook event marks a re-dispatch as one. Main-loop spend is as of each session's last worker run, so spend after it is not counted.
 
 ## Extending
 

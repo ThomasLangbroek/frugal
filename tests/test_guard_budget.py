@@ -111,6 +111,13 @@ def test_blocks_sage_over_budget(tmp_path):
     assert "over the $1.00 budget" in proc.stderr
 
 
+def test_blocks_fork_over_budget(tmp_path):
+    path = transcript(tmp_path, ("msg_1", 200_000))
+    proc = run_hook(tmp_path, spawn(path, "fork"), budget=1.00)
+    assert proc.returncode == 2
+    assert "over the $1.00 budget" in proc.stderr
+
+
 def test_allows_cheap_workers_over_budget(tmp_path):
     # cheap workers reduce spend; blocking them would push work back into the
     # main loop, which is what emptied the budget

@@ -5,6 +5,9 @@
 # Escape hatch: export FRUGAL_ALLOW_EXPENSIVE=1 to allow expensive agents this
 # session. Fail-open on unparseable input; a bare Agent call (no subagent_type)
 # is treated as general-purpose and blocked.
+# A spawn that pins a cheap tier through the Agent tool's `model` parameter
+# (haiku or sonnet) is not expensive whatever its type, so it passes. `fork`
+# is the exception: it ignores `model` and always runs on the main-loop model.
 [ "${FRUGAL_ALLOW_EXPENSIVE:-0}" = "1" ] && exit 0
 
 # Windows has no `python3` on PATH — it ships `python` and the `py` launcher.
@@ -23,15 +26,22 @@ try:
     payload = json.load(sys.stdin)
 except Exception:
     print("__PARSE_FAIL__"); sys.exit(0)
-print((payload.get("tool_input") or {}).get("subagent_type", ""))
+tool_input = payload.get("tool_input") or {}
+print(tool_input.get("subagent_type") or "", tool_input.get("model") or "", sep="|")
 ' 2>/dev/null) || exit 0                                # interpreter failed: fail open
 
 [ "$agent_type" = "__PARSE_FAIL__" ] && exit 0          # bad input: fail open
+agent_model=${agent_type#*|}
+agent_type=${agent_type%%|*}
 [ -z "$agent_type" ] && agent_type="general-purpose"    # omitted type defaults to general-purpose
 
+if [ "$agent_type" != "fork" ]; then
+  case "$agent_model" in haiku|sonnet) exit 0 ;; esac
+fi
+
 case "$agent_type" in
-  general-purpose|Explore|Plan|claude|sage|*:sage)
-    echo "frugal: blocked reasoning-tier agent '$agent_type'. Route locate/map -> frugal:scout, extract/summarise/classify -> frugal:extractor, mechanical edits -> frugal:mechanic or frugal:builder. If the task genuinely needs main-loop breadth, set FRUGAL_ALLOW_EXPENSIVE=1 to allow this session." >&2
+  general-purpose|Explore|Plan|claude|fork|sage|*:sage)
+    echo "frugal: blocked reasoning-tier agent '$agent_type'. Route locate/map -> frugal:scout, extract/summarise/classify -> frugal:extractor, mechanical edits -> frugal:mechanic or frugal:builder. A generic agent pinned to a cheap tier (Agent model: haiku or sonnet) is allowed. If the task genuinely needs main-loop breadth, set FRUGAL_ALLOW_EXPENSIVE=1 to allow this session." >&2
     exit 2
     ;;
 esac
