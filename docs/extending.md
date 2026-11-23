@@ -41,7 +41,7 @@ In `skills/routing/SKILL.md`, add one row to the table in Step 2:
 
 ## 3. Optionally: price entry
 
-If the new agent uses a model family not in `scripts/stats.py` `PRICES`, add a `(substring, (input, output))` entry so `/frugal:router-stats` prices it correctly. Put specific substrings before generic ones (first hit wins), and add a `CACHE_READ` row if the model bills cache reads at something other than 0.1x input. Unknown models are priced at the baseline (top tier), which overstates their cost.
+If the new agent uses a model family not in `scripts/stats.py` `PRICES`, add a `(substring, (input, output))` entry so `/frugal:router-stats` prices it correctly. Put specific substrings before generic ones (first hit wins), and add a `CACHE_READ` row if the model bills cache reads at something other than 0.1x input. Add the exact model id to `VERIFIED` too, or the report flags its price as unverified. Unknown models are priced at the baseline (top tier), which overstates their cost.
 
 ## 4. Test
 

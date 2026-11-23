@@ -303,11 +303,11 @@
     <div class="head">
       <p class="eyebrow">it measures itself</p>
       <h2>Numbers from your machine, not this page.</h2>
-      <p>A hook logs one local line per worker run: agent, model, tokens, escalation flag. A report then shows cost per tier, escalation rate, and savings versus your session's own main-loop model.</p>
+      <p>A hook logs one local line per worker run: agent, model, tokens. A report then shows cost per tier and savings versus your session's own main-loop model.</p>
     </div>
     <div class="measure">
       <div>
-        <p class="lead">Learning is deliberately offline. High escalations on one agent means its row routes too low. Near-zero savings means work is not being delegated. You edit the decision table, not a model.</p>
+        <p class="lead">Learning is deliberately offline. Near-zero savings means work is not being delegated. You edit the decision table, not a model.</p>
         <p>In the author's own measurements the delegated portion of a session runs about 85% cheaper than the same work on the top tier. Reasoning stays on the expensive model by design.</p>
       </div>
       <div class="code">
@@ -318,7 +318,6 @@ scout        41    haiku    <span class="pr">$0.02</span>
 extractor    23    haiku    <span class="pr">$0.03</span>
 mechanic     11    sonnet   <span class="pr">$0.19</span>
 main loop     7    fable    $2.90
-escalation rate ............ 6%
 saved vs top tier ..... <span class="pr">$3.41</span></pre>
       </div>
     </div>
@@ -360,7 +359,7 @@ saved vs top tier ..... <span class="pr">$3.41</span></pre>
     <div class="honest">
       <div><h4>Claude Code only</h4><p>It leans on the harness: the Agent tool, hooks, parallel delegation. Multi-provider is a documented recipe, not a tested code path.</p></div>
       <div><h4>Advisory without the guard</h4><p>The skill steers routing well, but only the guard hook enforces it. Turn the hook on for a hard ceiling.</p></div>
-      <div><h4>Metrics are bounded</h4><p>Limited to what hook events and transcripts expose. Escalations without the marker are not counted.</p></div>
+      <div><h4>Metrics are bounded</h4><p>Limited to what hook events and transcripts expose. Escalations are not counted.</p></div>
     </div>
   </div>
 </section>

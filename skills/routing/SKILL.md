@@ -58,10 +58,10 @@ Security-sensitive changes, destructive operations, ambiguous requirements, anyt
 
 ## Escalation protocol (verification first)
 
-1. A deterministic check exists for the worker's output (tests, compiler, schema validation, diff applies, `terraform validate`): run it. Pass = done. Fail = re-dispatch one tier up (haiku worker -> equivalent sonnet worker; sonnet worker -> take over yourself), maximum one retry. Prefix the retry prompt with `[frugal-escalation from <agent>]` and include the failed attempt's footer.
+1. A deterministic check exists for the worker's output (tests, compiler, schema validation, diff applies, `terraform validate`): run it. Pass = done. Fail = re-dispatch one tier up (haiku worker -> equivalent sonnet worker; sonnet worker -> take over yourself), maximum one retry. Include the failed attempt's footer in the retry prompt.
 2. No deterministic check: spot-read the result yourself. You receive it anyway; judging it costs almost nothing.
 3. The worker's `ESCALATE: yes` is advisory input to rules 1 and 2, never the sole trigger.
-4. If the task still exceeds your own tier after you take over: hand it to `sage` with the full failure history, prefixed `[frugal-escalation from main]`. One attempt, final.
+4. If the task still exceeds your own tier after you take over: hand it to `sage` with the full failure history. One attempt, final.
 5. Never start at an expensive tier unless the decision table sends you there.
 
 ## Budget

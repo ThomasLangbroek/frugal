@@ -34,7 +34,7 @@ def test_report_aggregates_and_shows_savings(tmp_path):
     ])
     out = run_stats(path)
     assert "frugal:scout" in out and "frugal:mechanic" in out
-    assert "escalation" in out.lower()
+    assert "scalation" not in out
     assert "baseline" in out.lower()
     assert "$" in out
 
@@ -244,7 +244,7 @@ def run_advice(path):
 def recent(agent_type, n, **overrides):
     import time as _time
     base = {"agent_type": agent_type, "model": "claude-haiku-4-5",
-            "main_model": "claude-fable-5", "escalated": False,
+            "main_model": "claude-fable-5",
             "ts": _time.time(), "input_tokens": 100_000,
             "output_tokens": 5_000, "handoff_output_tokens": 500,
             "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0}
@@ -254,13 +254,6 @@ def recent(agent_type, n, **overrides):
 def test_advice_silent_when_healthy(tmp_path):
     path = write_metrics(tmp_path, recent("frugal:scout", 10))
     assert run_advice(path) == ""
-
-
-def test_advice_flags_high_escalation(tmp_path):
-    runs = recent("frugal:scout", 6) + recent("frugal:scout", 4, escalated=True)
-    path = write_metrics(tmp_path, runs)
-    out = run_advice(path)
-    assert "frugal:scout" in out and "one tier up" in out
 
 
 def test_advice_flags_losing_route(tmp_path):
@@ -280,13 +273,13 @@ def test_advice_flags_fat_handoffs(tmp_path):
 
 
 def test_advice_needs_minimum_runs(tmp_path):
-    path = write_metrics(tmp_path, recent("frugal:scout", 4, escalated=True))
+    path = write_metrics(tmp_path, recent("frugal:scout", 4, handoff_output_tokens=5_000))
     assert run_advice(path) == ""
 
 
 def test_advice_ignores_stale_records(tmp_path):
     path = write_metrics(tmp_path, recent(
-        "frugal:scout", 10, escalated=True, ts=1.0))  # 1970: far outside window
+        "frugal:scout", 10, handoff_output_tokens=5_000, ts=1.0))  # 1970: far outside window
     assert run_advice(path) == ""
 
 
@@ -362,3 +355,57 @@ def test_days_filter(tmp_path):
         capture_output=True, text=True, check=True,
     ).stdout
     assert "| **Total** | **1** |" in out
+
+
+def _rec(model, **kw):
+    return {"agent_type": "frugal:scout", "model": model,
+            "input_tokens": 1_000_000, "output_tokens": 0,
+            "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0,
+            **kw}
+
+
+def test_unverified_models_flagged_in_report(tmp_path):
+    out = run_stats(write_metrics(tmp_path, [
+        _rec("claude-haiku-6", main_model="claude-fable-5-2")]))
+    assert "Unverified prices:" in out and "claude-haiku-6" in out
+    line = next(l for l in out.splitlines() if "Unverified prices:" in l)
+    assert "claude-fable-5-2" not in line.split("Unverified prices:")[1]
+    out = run_stats(write_metrics(tmp_path, [
+        _rec("claude-haiku-4-5-20251001", main_model="claude-fable-5-2")]))
+    assert "Unverified prices" not in out
+    out = run_stats(write_metrics(tmp_path, [_rec("<synthetic>")]))
+    assert "Unverified prices" not in out
+
+
+def test_advice_flags_unverified_model(tmp_path):
+    path = write_metrics(tmp_path, [
+        _rec("claude-sonnet-6", ts=time.time()) for _ in range(3)])
+    assert "no verified price for claude-sonnet-6" in run_advice(path)
+    path = write_metrics(tmp_path, [
+        _rec("claude-sonnet-6", ts=1.0) for _ in range(3)])
+    assert run_advice(path) == ""
+
+
+def _metered(sid="sessionA", **kw):
+    return [_rec("claude-haiku-5-5", session_id=sid, ts=time.time(), **kw)
+            for _ in range(2)]
+
+
+def test_session_table_shows_main_loop_share(tmp_path):
+    recs = _metered(main_spend_usd=1.0)
+    recs[1]["main_spend_usd"] = 1.8
+    out = run_stats(write_metrics(tmp_path, recs))
+    assert any("| $1.80 | 10% |" in l for l in out.splitlines()
+               if l.startswith("| sessionA"))
+    out = run_stats(write_metrics(tmp_path, _metered()))
+    assert any(l.endswith("| - | - |") for l in out.splitlines()
+               if l.startswith("| sessionA"))
+
+
+def test_session_total_ignores_unmetered_sessions_for_share(tmp_path):
+    recs = _metered(main_spend_usd=1.0)
+    recs[1]["main_spend_usd"] = 1.8
+    recs.append(_rec("claude-haiku-5-5", session_id="sessionB", ts=time.time()))
+    out = run_stats(write_metrics(tmp_path, recs))
+    total = next(l for l in out.splitlines() if "**Total**" in l and "$1.80" in l)
+    assert "**$1.80**" in total and "**10%**" in total
