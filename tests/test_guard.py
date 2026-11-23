@@ -65,3 +65,20 @@ def test_garbage_input_allows():
     proc = subprocess.run(["bash", str(SCRIPT)], input="not json", text=True,
                           capture_output=True, env=ENV)
     assert proc.returncode == 0
+
+
+def agent_exit(**tool_input):
+    return run_guard({"tool_name": "Agent", "tool_input": tool_input}).returncode
+
+
+def test_model_override_allows_cheap_tier():
+    assert agent_exit(subagent_type="Explore", model="haiku") == 0
+    assert agent_exit(subagent_type="general-purpose", model="sonnet") == 0
+    assert agent_exit(model="haiku") == 0
+    assert agent_exit(subagent_type="frugal:sage", model="sonnet") == 0
+
+
+def test_model_override_blocks_expensive_tier_and_fork():
+    assert agent_exit(subagent_type="Explore", model="opus") == 2
+    assert agent_exit(subagent_type="fork") == 2
+    assert agent_exit(subagent_type="fork", model="haiku") == 2  # fork ignores model

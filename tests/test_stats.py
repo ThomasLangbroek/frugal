@@ -1,7 +1,10 @@
 import json
 import subprocess
 import sys
+import time
 from pathlib import Path
+
+import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "scripts" / "stats.py"
@@ -150,8 +153,8 @@ def test_losing_delegation_flagged_when_net_exceeds_baseline(tmp_path):
          "cache_read_input_tokens": 0, "cache_creation_input_tokens": 0},
     ])
     out = run_stats(path)
-    # worker (sonnet): 100k*$3 + 50k*$15 = $1.05; handoff 50k*$1 = $0.05
-    # net $1.10 vs baseline (haiku): 100k*$1 + 50k*$5 = $0.35 -> loses
+    # worker (sonnet 5): 100k*$2 + 50k*$10 = $0.70; handoff 50k*$1 = $0.05
+    # net $0.75 vs baseline (haiku): 100k*$1 + 50k*$5 = $0.35 -> loses
     assert "loses money" in out
     assert "frugal:extractor" in out
 
@@ -285,3 +288,77 @@ def test_advice_ignores_stale_records(tmp_path):
     path = write_metrics(tmp_path, recent(
         "frugal:scout", 10, escalated=True, ts=1.0))  # 1970: far outside window
     assert run_advice(path) == ""
+
+
+def test_price_for_distinguishes_generations():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import price_for
+    assert price_for("claude-sonnet-5") == (2.00, 10.00)
+    assert price_for("claude-sonnet-4-6") == (3.00, 15.00)
+    assert price_for("claude-fable-5-1") == (10.00, 50.00)
+    assert price_for("claude-haiku-5-5") == (0.10, 0.50)
+    assert price_for("claude-haiku-4-5-20251001") == (1.00, 5.00)
+    assert price_for("claude-sonnet-5-5") == (2.00, 10.00)
+    assert price_for("claude-opus-5-5") == (4.00, 20.00)
+    assert price_for("claude-opus-5") == (5.00, 25.00)
+    assert price_for("claude-fable-5-2") == (8.00, 40.00)
+    assert price_for("claude-fable-5") == (10.00, 50.00)
+
+
+def test_cache_read_price_per_model():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import cache_read_price, cost_usd
+    assert cache_read_price("claude-fable-5-2") == 0.20
+    assert cache_read_price("claude-opus-5-5") == 0.20
+    assert cache_read_price("claude-sonnet-5-5") == 0.10
+    assert cache_read_price("claude-sonnet-5") == pytest.approx(0.20)
+    assert cache_read_price("claude-haiku-4-5") == pytest.approx(0.10)
+    assert cache_read_price("claude-fable-5-1") == pytest.approx(1.00)
+    rec = {"model": "claude-fable-5-2", "cache_read_input_tokens": 1_000_000}
+    assert cost_usd(rec) == pytest.approx(0.20)
+    assert cost_usd(rec, "claude-fable-5") == pytest.approx(1.00)
+
+
+def test_baseline_falls_back_to_top_tier_without_main_model():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    from stats import baseline_cost
+    rec = {"model": "claude-haiku-5-5", "input_tokens": 1_000_000}
+    assert baseline_cost(rec) == pytest.approx(10.00)
+    assert baseline_cost({**rec, "main_model": "claude-opus-5-5"}) == pytest.approx(4.00)
+
+
+def test_report_folds_one_off_agents_when_table_is_long(tmp_path):
+    runs = [dict(r, agent_type=f"adhoc-{i}", model="claude-sonnet-5")
+            for i, r in enumerate(recent("x", 30))]
+    runs += recent("frugal:scout", 3, model="claude-haiku-5-5")
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "frugal:scout [haiku-5-5]" in out
+    assert "other [sonnet-5]" in out
+    assert "30 agent types" in out
+    assert "adhoc-0 " not in out
+
+
+def test_report_keeps_short_table_unfolded(tmp_path):
+    runs = [dict(r, agent_type=f"adhoc-{i}") for i, r in enumerate(recent("x", 2))]
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "adhoc-0" in out and "adhoc-1" in out
+    assert "other [" not in out
+
+
+def test_session_table_folds_older_sessions(tmp_path):
+    runs = [dict(r, session_id=f"sess{i:04d}-xxxx", ts=100.0 + i)
+            for i, r in enumerate(recent("frugal:scout", 12))]
+    out = run_stats(write_metrics(tmp_path, runs))
+    assert "2 older" in out
+    assert "sess0011" in out
+    assert "sess0000" not in out
+
+
+def test_days_filter(tmp_path):
+    path = write_metrics(tmp_path, recent("frugal:scout", 1, ts=1.0)
+                         + recent("frugal:scout", 1, ts=time.time()))
+    out = subprocess.run(
+        [sys.executable, str(SCRIPT), "--path", str(path), "--days", "1"],
+        capture_output=True, text=True, check=True,
+    ).stdout
+    assert "| **Total** | **1** |" in out

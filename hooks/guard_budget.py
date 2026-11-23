@@ -23,7 +23,7 @@ from stats import cost_usd  # noqa: E402  (one price table, not two)
 WARN_AT = 0.8
 # the set guard_expensive.sh blocks; over budget they lose the
 # FRUGAL_ALLOW_EXPENSIVE override, because they cost more than the main loop
-EXPENSIVE = ("general-purpose", "Explore", "Plan", "claude", "sage")
+EXPENSIVE = ("general-purpose", "Explore", "Plan", "claude", "fork", "sage")
 ID_CACHE = 20  # responses whose counted cost is carried between scans
 
 

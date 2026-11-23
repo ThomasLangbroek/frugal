@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Frugal metrics report: cost per agent tier, escalation rate, savings vs baseline.
 
-Prices are USD per million tokens (verified 27-07-2026). Cache reads bill at
-0.1x input, cache writes at 1.25x input (5-minute TTL). Edit PRICES when
-Anthropic pricing changes.
+Prices are USD per million tokens (verified 23-11-2026). Cache reads bill at
+0.1x input unless the model has a CACHE_READ row, cache writes at 1.25x input
+(5-minute TTL). Edit PRICES and CACHE_READ when Anthropic pricing changes.
 """
 import argparse
 import json
 import os
 import time
-from collections import defaultdict
+from collections import Counter, defaultdict
 
 # --advice thresholds: only speak when a route is measurably miscalibrated
 ADVICE_MIN_RUNS = 5
@@ -17,19 +17,34 @@ ADVICE_WINDOW_DAYS = 14
 ADVICE_ESCALATION_RATE = 0.30
 ADVICE_HANDOFF_TOKENS = 2000
 FLOOR_MIN_RUNS = 3  # below this the median per-spawn cost is noise
+REPORT_MAX_ROWS = 25  # a longer agent table folds its one-off agents into "other"
+SESSION_ROWS = 10  # newest sessions listed; older ones fold into one row
 
 # substring match on the model id, first hit wins; values: (input, output) $/MTok
 PRICES = [
-    ("haiku", (1.00, 5.00)),
+    # ponytail: flat rate. Haiku 5.5 prompts over 100K tokens bill $0.50/$2.50,
+    # but a record holds run totals, not request sizes; log per-request usage in
+    # log_metrics.py if haiku workers start reading that much.
+    ("haiku-5", (0.10, 0.50)),  # claude-haiku-5-5
+    ("haiku", (1.00, 5.00)),  # haiku 4.5 and older
     ("sonnet-5", (2.00, 10.00)),  # claude-sonnet-5 (specific rows before generic ones)
     ("sonnet", (3.00, 15.00)),  # sonnet 4.6 and older
     ("opus-5-5", (4.00, 20.00)),  # claude-opus-5-5
     ("opus", (5.00, 25.00)),  # matches claude-opus-5 and the 4.x line, same rates
-    ("fable", (10.00, 50.00)),
+    ("fable-5-2", (8.00, 40.00)),  # claude-fable-5-2
+    ("fable", (10.00, 50.00)),  # fable 5 and 5.1
 ]
 BASELINE = ("fable", PRICES[-1][1])  # what everything would cost on the top tier
 CACHE_READ_FACTOR = 0.1
 CACHE_WRITE_FACTOR = 1.25
+# cache-read $/MTok for models that discount it below 0.1x input. Worker and
+# main-loop bills are almost all cache reads, so this row matters more than
+# the input price beside it.
+CACHE_READ = [
+    ("sonnet-5-5", 0.10),
+    ("opus-5-5", 0.20),
+    ("fable-5-2", 0.20),
+]
 
 
 def price_for(model):
@@ -39,12 +54,21 @@ def price_for(model):
     return BASELINE[1]
 
 
-def cost_usd(record, price=None):
-    p_in, p_out = price or price_for(record.get("model"))
+def cache_read_price(model):
+    for needle, price in CACHE_READ:
+        if needle in (model or ""):
+            return price
+    return price_for(model)[0] * CACHE_READ_FACTOR
+
+
+def cost_usd(record, model=None):
+    """Cost of the record's tokens on `model` (default: the model that ran)."""
+    model = model or record.get("model")
+    p_in, p_out = price_for(model)
     return (
         record.get("input_tokens", 0) * p_in
         + record.get("output_tokens", 0) * p_out
-        + record.get("cache_read_input_tokens", 0) * p_in * CACHE_READ_FACTOR
+        + record.get("cache_read_input_tokens", 0) * cache_read_price(model)
         + record.get("cache_creation_input_tokens", 0) * p_in * CACHE_WRITE_FACTOR
     ) / 1_000_000
 
@@ -52,7 +76,7 @@ def cost_usd(record, price=None):
 def baseline_cost(record):
     """What this run would have cost on the session's main-loop model.
     Records predating the main_model field fall back to the top tier."""
-    return cost_usd(record, price_for(record.get("main_model")))
+    return cost_usd(record, record.get("main_model") or BASELINE[0])
 
 
 def handoff_cost(record):
@@ -115,10 +139,21 @@ def report(records):
     groups = defaultdict(lambda: {"runs": 0, "escalations": 0, "in": 0,
                                   "out": 0, "net": 0.0, "baseline": 0.0,
                                   "dur_ms": 0, "dur_n": 0})
-    for record in records:
+    def row_name(record, fold=()):
         agent = record.get("agent_type") or "unknown"
+        if agent in fold:
+            agent = "other"
         model = (record.get("model") or "?").removeprefix("claude-")
-        group = groups[f"{agent} [{model}]"]
+        return f"{agent} [{model}]"
+
+    # ad-hoc agents (workflow steps, named teammates) run once or twice each
+    # and would bury the recurring routes under hundreds of single-run rows
+    fold = ()
+    if len({row_name(r) for r in records}) > REPORT_MAX_ROWS:
+        runs = Counter(r.get("agent_type") or "unknown" for r in records)
+        fold = {name for name, n in runs.items() if n < FLOOR_MIN_RUNS}
+    for record in records:
+        group = groups[row_name(record, fold)]
         group["runs"] += 1
         group["escalations"] += 1 if record.get("escalated") else 0
         group["in"] += record.get("input_tokens", 0)
@@ -164,6 +199,12 @@ def report(records):
         "*Net cost = what you paid (worker spend plus reply re-ingestion). "
         "At baseline = the same work on the main-loop model. Saved is the "
         "difference.*",
+    ]
+    if fold:
+        lines.append(
+            f"*other = {len(fold)} agent types with fewer than "
+            f"{FLOOR_MIN_RUNS} runs each, folded per model.*")
+    lines += [
         f"**Escalation rate:** {total['escalations']}/{total['runs']} runs ({rate:.1f}%)",
     ]
     if losing:
@@ -205,8 +246,16 @@ def session_table(records):
         "|---|---|---|---|---|---|",
     ]
     total = {"runs": 0, "net": 0.0, "baseline": 0.0}
-    for sid in sorted(groups, key=lambda s: groups[s]["first"] or 0, reverse=True):
+    ordered = sorted(groups, key=lambda s: groups[s]["first"] or 0, reverse=True)
+    older = {"runs": 0, "net": 0.0, "baseline": 0.0}
+    for index, sid in enumerate(ordered):
         group = groups[sid]
+        for key in total:
+            total[key] += group[key]
+        if index >= SESSION_ROWS:
+            for key in older:
+                older[key] += group[key]
+            continue
         when = (time.strftime("%d-%m-%Y %H:%M", time.localtime(group["first"]))
                 if group["first"] is not None else "?")
         lines.append(
@@ -214,8 +263,12 @@ def session_table(records):
             f"| ${group['net']:.2f} | ${group['baseline']:.2f} "
             f"| {saved_cell(group['net'], group['baseline'])} |"
         )
-        for key in total:
-            total[key] += group[key]
+    if older["runs"]:
+        lines.append(
+            f"| {len(ordered) - SESSION_ROWS} older | | {older['runs']} "
+            f"| ${older['net']:.2f} | ${older['baseline']:.2f} "
+            f"| {saved_cell(older['net'], older['baseline'])} |"
+        )
     lines.append(
         f"| **Total** | | **{total['runs']}** "
         f"| **${total['net']:.2f}** | **${total['baseline']:.2f}** "
@@ -313,8 +366,13 @@ def main():
         os.path.expanduser("~/.claude/frugal/metrics.jsonl")))
     parser.add_argument("--advice", action="store_true",
                         help="print routing feedback lines only (empty when healthy)")
+    parser.add_argument("--days", type=float,
+                        help="only count runs from the last N days")
     args = parser.parse_args()
     records = load(args.path)
+    if args.days is not None:
+        cutoff = time.time() - args.days * 86400
+        records = [r for r in records if r.get("ts", 0) >= cutoff]
     if args.advice:
         text = advice(records)
         if text:

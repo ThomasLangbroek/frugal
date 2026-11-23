@@ -27,7 +27,7 @@ This is an enforced default, not a substitute for judgement: for regulated data 
 
 ## Step 2: decision table
 
-Decompose the request into sub-tasks. For each, match signals to the cheapest capable agent:
+Decompose the request into sub-tasks. For each, match signals to the cheapest capable agent. Installed as a plugin, the agents are namespaced: spawn `frugal:scout`, not `scout`:
 
 | Task signals | Required capabilities | Route |
 |---|---|---|
@@ -40,7 +40,7 @@ Decompose the request into sub-tasks. For each, match signals to the cheapest ca
 
 `sage` is never a routing default. Check what the main loop actually runs before reaching for it: on Opus 5 (or any tier below Fable) `sage` is a real capability escalation and the decision table's first clause applies; if the main loop already runs Fable, use `sage` only for context isolation, not capability.
 
-**Generic agents are never routing targets.** `Explore`, `general-purpose`, `claude`, and `Plan` are reasoning-tier and bill at main-loop rates — never spawn them for locate, extract, or summarise work, no matter how broad the fan-out. Map them down: locate/map -> `scout`; extract/summarise/classify -> `extractor`; mechanical edits -> `mechanic`/`builder`; reasoning stays in the main loop. A bare `Agent` call with no `subagent_type` defaults to `general-purpose` (expensive) — always name a cheap agent explicitly. The `guard_expensive.sh` hook blocks these at spawn time; `FRUGAL_ALLOW_EXPENSIVE=1` is the deliberate, per-session override for when a task genuinely needs main-loop breadth.
+**Generic agents are never routing targets.** `Explore`, `general-purpose`, `claude`, `Plan`, and `fork` are reasoning-tier and bill at main-loop rates — never spawn them for locate, extract, or summarise work, no matter how broad the fan-out. Map them down: locate/map -> `scout`; extract/summarise/classify -> `extractor`; mechanical edits -> `mechanic`/`builder`; reasoning stays in the main loop. A bare `Agent` call with no `subagent_type` defaults to `general-purpose` (expensive) — always name a cheap agent explicitly. The exception is a generic agent pinned to a cheap tier with the Agent tool's `model` parameter (`haiku` or `sonnet`): that bills at the pinned tier and is allowed, but prefer the frugal worker when one fits, because its prompt caps the reply. `fork` ignores `model` and always runs on the main-loop model. The `guard_expensive.sh` hook blocks these at spawn time; `FRUGAL_ALLOW_EXPENSIVE=1` is the deliberate, per-session override for when a task genuinely needs main-loop breadth.
 
 Workers pin their own reasoning effort in frontmatter: `low` for `scout`, `extractor` and `mechanic`, `medium` for `builder`, `high` for `sage`. Model tier is one axis of cost and thinking is another, so a session running at high effort no longer makes a haiku scout deliberate over a grep.
 
@@ -52,7 +52,7 @@ Security-sensitive changes, destructive operations, ambiguous requirements, anyt
 
 - Delegate only self-contained sub-tasks the prompt can fully specify. If specifying takes longer than doing: do it inline.
 - Delegation has a floor. A spawn costs about the same whether the task is trivial or large, so a job too small to repay that fixed cost is cheaper done inline. `scripts/stats.py` prints the measured floor per agent ("delegating pays off above ~N tokens of reading") from your own runs; under it, read it yourself.
-- Context handoff: pass pointers (`path:line` ranges, commit SHAs, URLs), never pasted file content. Pasting is billed as main-loop output tokens (fable ~$50/MTok, and generating them takes wall-clock time); a worker reads the same bytes as haiku input (~$1/MTok) in one round trip. Paste only what the worker cannot retrieve itself — text that exists solely in the conversation (user message, prior tool output, fetched page) — or trivially small snippets (<~200 tokens).
+- Context handoff: pass pointers (`path:line` ranges, commit SHAs, URLs), never pasted file content. Pasting is billed as main-loop output tokens (fable ~$40/MTok, and generating them takes wall-clock time); a worker reads the same bytes as haiku input (~$0.10/MTok) in one round trip. Paste only what the worker cannot retrieve itself — text that exists solely in the conversation (user message, prior tool output, fetched page) — or trivially small snippets (<~200 tokens).
 - Batch independent delegations in one message so they run in parallel. Large fan-outs (e.g. review 50 modules): fan out `scout`/`extractor` workers, merge their summaries, do one final reasoning pass yourself.
 - Workers end with a footer (`RESULT:` / `CHECKS-RUN:` / `UNCERTAINTIES:` / `ESCALATE:`). A worker reporting ambiguity: resolve it yourself; never re-prompt the worker to guess.
 

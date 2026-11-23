@@ -41,10 +41,10 @@ In `skills/routing/SKILL.md`, add one row to the table in Step 2:
 
 ## 3. Optionally: price entry
 
-If the new agent uses a model family not in `scripts/stats.py` `PRICES`, add a `(substring, (input, output))` entry so `/frugal:router-stats` prices it correctly. Unknown models are priced at the baseline (top tier), which overstates their cost.
+If the new agent uses a model family not in `scripts/stats.py` `PRICES`, add a `(substring, (input, output))` entry so `/frugal:router-stats` prices it correctly. Put specific substrings before generic ones (first hit wins), and add a `CACHE_READ` row if the model bills cache reads at something other than 0.1x input. Unknown models are priced at the baseline (top tier), which overstates their cost.
 
 ## 4. Test
 
-`tests/test_agents.py` checks frontmatter and the footer contract. Add your agent to `EXPECTED` there. Optionally add a scenario line to `evals/scenarios.jsonl`.
+`tests/test_agents.py` checks frontmatter and the footer contract. Add your agent to `EXPECTED` there.
 
 That is the whole extension surface. If you find yourself wanting to edit routing logic, the design has failed; open an issue instead.

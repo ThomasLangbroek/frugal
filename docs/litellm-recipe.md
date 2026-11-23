@@ -4,6 +4,8 @@ Frugal itself is provider-agnostic in design but Anthropic-only in v1: agents se
 
 **Caveat: this path is documented, not tested in CI.** Behaviour of non-Claude models inside Claude Code's harness varies; agentic tool use quality differs widely between models.
 
+**Check the arithmetic first.** Claude Haiku 5.5 costs $0.10 / $0.50 per million tokens, so remapping the cheap tier to another hosted provider now saves little or nothing. The recipe still earns its place for local models and for data that must stay on your own infrastructure.
+
 ## litellm-config.yaml
 
 Map the model names Claude Code sends to any provider's models:
@@ -11,27 +13,27 @@ Map the model names Claude Code sends to any provider's models:
 ```yaml
 model_list:
   # cheap tier -> a non-Anthropic budget model
-  - model_name: claude-haiku-4-5
+  - model_name: claude-haiku-5-5
     litellm_params:
       model: openai/gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
 
   # mid tier -> keep on Anthropic
-  - model_name: claude-sonnet-5
+  - model_name: claude-sonnet-5-5
     litellm_params:
-      model: anthropic/claude-sonnet-5
+      model: anthropic/claude-sonnet-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
   # main-loop / opus tier -> keep on Anthropic
-  - model_name: claude-opus-5
+  - model_name: claude-opus-5-5
     litellm_params:
-      model: anthropic/claude-opus-5
+      model: anthropic/claude-opus-5-5
       api_key: os.environ/ANTHROPIC_API_KEY
 
   # top tier -> keep on Anthropic
-  - model_name: claude-fable-5
+  - model_name: claude-fable-5-2
     litellm_params:
-      model: anthropic/claude-fable-5
+      model: anthropic/claude-fable-5-2
       api_key: os.environ/ANTHROPIC_API_KEY
 
 litellm_settings:
@@ -60,7 +62,7 @@ Frugal's routing is unchanged: `scout` still asks for the haiku tier; LiteLLM de
 The same mechanism works with Ollama or any OpenAI-compatible endpoint:
 
 ```yaml
-  - model_name: claude-haiku-4-5
+  - model_name: claude-haiku-5-5
     litellm_params:
       model: ollama/qwen2.5-coder:14b
       api_base: http://localhost:11434
