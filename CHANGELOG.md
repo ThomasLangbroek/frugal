@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/ThomasLangbroek/frugal/compare/v0.14.1...v0.15.0) (2026-11-23)
+
+
+### Features
+
+* current prices, cache-read rates, a readable report and model-aware guard ([#49](https://github.com/ThomasLangbroek/frugal/issues/49)) ([c8661a8](https://github.com/ThomasLangbroek/frugal/commit/c8661a867fb43004d60e1bb41db37dcce7e9aa85))
+
 ## [0.14.1](https://github.com/ThomasLangbroek/frugal/compare/v0.14.0...v0.14.1) (2026-10-06)
 
 
